@@ -1,0 +1,1 @@
+ALTER TABLE `workflows` ADD `client_id` integer REFERENCES clients(id);
