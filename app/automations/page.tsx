@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Switch } from "@/components/ui/switch";
 import {
   Sheet,
@@ -10,7 +11,9 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 type Workflow = {
-  id: number;
+  id: string;
+  clientId: string;
+  clientName: string;
   name: string;
   description: string;
   trigger: string;
@@ -18,66 +21,45 @@ type Workflow = {
   safetyLevel: string;
   approvalRequired: boolean;
   active: boolean;
+  linked: boolean;
+  workspaceId: string | null;
+  deliveryStage: string;
+  desiredState: string;
+  observedState: string;
+  runnerKey: string;
+  externalWorkflowId: string;
+  configVersion: string;
+  owner: string;
+  acceptanceCriteria: string;
+  lastObservedAt: string;
   lastRunStatus: string;
   lastRunAt: string;
   failureCount: number;
 };
-type ClientOption = { id: number; companyName: string };
-const blankWorkflow = { clientId: "", name: "", description: "", trigger: "", action: "", safetyLevel: "Supervised", approvalRequired: true };
-const previewWorkflows: Workflow[] = [
-  {
-    id: -1,
-    name: "Website intake → Client record",
-    description: "Validates a Bearagon.com submission and prepares a new onboarding record.",
-    trigger: "Verified website intake",
-    action: "Prepare client and checklist",
-    safetyLevel: "Automatic",
-    approvalRequired: false,
-    active: false,
-    lastRunStatus: "Ready for safe test",
-    lastRunAt: "",
-    failureCount: 0,
-  },
-  {
-    id: -2,
-    name: "Welcome email approval",
-    description: "Prepares a personalized welcome email draft after a client record is created.",
-    trigger: "New client created",
-    action: "Draft welcome email",
-    safetyLevel: "Supervised",
-    approvalRequired: true,
-    active: false,
-    lastRunStatus: "Ready for safe test",
-    lastRunAt: "",
-    failureCount: 0,
-  },
-  {
-    id: -3,
-    name: "Overdue onboarding alert",
-    description: "Flags stalled clients and prepares an internal Bearagon alert.",
-    trigger: "Checklist item becomes overdue",
-    action: "Prepare internal alert",
-    safetyLevel: "Automatic",
-    approvalRequired: false,
-    active: false,
-    lastRunStatus: "Ready for safe test",
-    lastRunAt: "",
-    failureCount: 0,
-  },
-  {
-    id: -4,
-    name: "Client launch approval",
-    description: "Prevents a client from moving to Live until a team member approves launch.",
-    trigger: "Checklist reaches 100%",
-    action: "Queue stage change to Live",
-    safetyLevel: "Restricted",
-    approvalRequired: true,
-    active: false,
-    lastRunStatus: "Ready for safe test",
-    lastRunAt: "",
-    failureCount: 0,
-  },
-];
+type ClientOption = { id: string; companyName: string };
+type AutomationApiPayload = { error?: string; workflow?: Workflow; workflows?: Workflow[] };
+type ClientApiPayload = { error?: string; clients?: ClientOption[] };
+const blankWorkflow = {
+  clientId: "",
+  name: "",
+  objective: "",
+  trigger: "",
+  action: "",
+  safetyLevel: "Supervised",
+  approvalRequired: true,
+  owner: "",
+  runnerKey: "unassigned",
+  externalWorkflowId: "",
+  configVersion: "",
+  acceptanceCriteria: "",
+};
+function observationLabel(value: string) {
+  if (!value) return "not reconciled";
+  const observed = new Date(value);
+  return Number.isNaN(observed.getTime())
+    ? "timestamp unavailable"
+    : `as of ${observed.toLocaleString()}`;
+}
 const tutorialSteps = [
   {
     eyebrow: "AUTOMATIONS 101",
@@ -99,15 +81,15 @@ const tutorialSteps = [
   },
   {
     eyebrow: "STEP 3 · SAFE TEST",
-    title: "Test the path without touching a client.",
-    body: "Open Review workflow and run a safe test. Cipher simulates the trigger and confirms that the approval gate stops external action.",
-    example: "Safe tests never send messages, change outside systems, or move money.",
+    title: "Test in the harness and return evidence.",
+    body: "Ops records the acceptance criteria and requests a test through an adapter. The harness performs the test and Console reports the observed result.",
+    example: "Ops never invents a passing result by changing a status field locally.",
   },
   {
     eyebrow: "STEP 4 · ACTIVATE",
-    title: "Turn it on only after the result looks right.",
-    body: "Start with one low-risk workflow, watch its activity, and expand slowly. You can pause one workflow—or all workflows—at any time.",
-    example: "Recommended first workflow: Welcome email approval in draft-only mode.",
+    title: "Request activation, then wait for acknowledgement.",
+    body: "Desired state captures Bearagon’s instruction. The automation is only shown as active after the harness acknowledges it and runtime telemetry confirms it.",
+    example: "Requested active and observed active are deliberately separate facts.",
   },
 ];
 export default function Automations() {
@@ -124,93 +106,87 @@ export default function Automations() {
   useEffect(() => {
     fetch("/api/automations")
       .then(async (r) => {
-        if (!r.ok) throw new Error("Workflow service unavailable");
-        return r.json();
+        const data = await r.json() as AutomationApiPayload;
+        if (!r.ok) throw new Error(data.error || "Automation service unavailable");
+        return data;
       })
-      .then((d) => setItems(d.workflows?.length ? d.workflows : previewWorkflows))
-      .catch(() => {
-        setItems(previewWorkflows);
-        setMessage("Preview mode · changes stay in this browser");
+      .then((d) => setItems(d.workflows || []))
+      .catch((error) => {
+        setItems([]);
+        setMessage(error instanceof Error ? error.message : "Automation records are unavailable");
       })
       .finally(() => setLoading(false));
   }, []);
   useEffect(() => {
-    fetch("/api/clients").then((response) => response.json()).then((data) => setClients(data.clients || [])).catch(() => setClients([]));
+    fetch("/api/clients").then((response) => response.json() as Promise<ClientApiPayload>).then((data) => setClients(data.clients || [])).catch(() => setClients([]));
   }, []);
-  const active = items.filter((x) => x.active).length,
+  const active = items.filter((x) => x.observedState === "active").length,
+    requested = items.filter((x) => x.desiredState === "active").length,
     approvals = items.filter((x) => x.approvalRequired).length,
     failures = items.reduce((sum, x) => sum + x.failureCount, 0),
-    allPaused = items.length > 0 && active === 0;
+    allPaused = items.length > 0 && items.every((item) => item.desiredState !== "active");
   async function toggle(item: Workflow) {
-    const active = !item.active;
-    setItems((v) => v.map((x) => (x.id === item.id ? { ...x, active } : x)));
+    const desiredState = item.desiredState === "active" ? "paused" : "active";
+    const optimistic = { ...item, desiredState };
+    setItems((v) => v.map((x) => (x.id === item.id ? optimistic : x)));
     setSelected((current) =>
-      current?.id === item.id ? { ...current, active } : current,
+      current?.id === item.id ? optimistic : current,
     );
-    if (item.id < 0) {
-      setMessage(`${item.name}: ${active ? "activated" : "paused"} in preview mode`);
-      return;
-    }
     try {
       const r = await fetch("/api/automations", {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ id: item.id, active }),
+        body: JSON.stringify({ id: item.id, desiredState }),
       });
-      if (!r.ok) throw new Error("Update failed");
-      setMessage(`${item.name}: ${active ? "activated" : "paused"}`);
-    } catch {
+      const data = await r.json() as AutomationApiPayload;
+      if (!r.ok) throw new Error(data.error || "Update failed");
+      if (!data.workflow) throw new Error("The updated automation was not returned.");
+      const updated = data.workflow;
+      setItems((current) => current.map((entry) => entry.id === item.id ? updated : entry));
+      setSelected((current) => current?.id === item.id ? updated : current);
+      setMessage(
+        desiredState === "active"
+          ? `${item.name}: activation requested · awaiting harness acknowledgement`
+          : `${item.name}: pause requested · observed state remains ${item.observedState}`,
+      );
+    } catch (error) {
       setItems((v) => v.map((x) => (x.id === item.id ? item : x)));
       setSelected((current) => (current?.id === item.id ? item : current));
-      setMessage("Change was not saved · please try again");
+      setMessage(error instanceof Error ? error.message : "Change was not saved");
     }
   }
   async function pauseAll() {
-    const pauseAll = !allPaused;
+    if (allPaused) return;
     const before = items;
-    setItems((v) => v.map((x) => ({ ...x, active: !pauseAll })));
-    if (items.every((item) => item.id < 0)) {
-      setMessage(pauseAll ? "All preview workflows paused" : "Preview workflows activated");
-      return;
-    }
+    setItems((v) => v.map((x) => ({ ...x, desiredState: "paused" })));
     try {
       const r = await fetch("/api/automations", {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ pauseAll }),
+        body: JSON.stringify({ pauseAll: true }),
       });
-      if (!r.ok) throw new Error("Update failed");
-      setMessage(pauseAll ? "All workflows paused" : "Workflows activated");
-    } catch {
+      const data = await r.json() as AutomationApiPayload;
+      if (!r.ok) throw new Error(data.error || "Update failed");
+      setItems(data.workflows || []);
+      setMessage("Pause requested for every installation · runtime acknowledgement is still separate");
+    } catch (error) {
       setItems(before);
-      setMessage("Change was not saved · please try again");
+      setMessage(error instanceof Error ? error.message : "Change was not saved");
     }
   }
   async function testWorkflow() {
     if (!selected) return;
     setTesting(true);
-    if (selected.id < 0) {
-      await new Promise((resolve) => setTimeout(resolve, 650));
-      const tested = { ...selected, lastRunStatus: "Safe test passed", lastRunAt: new Date().toISOString() };
-      setItems((v) => v.map((x) => (x.id === selected.id ? tested : x)));
-      setSelected(tested);
-      setMessage(selected.name + ": safe preview test passed");
-      setTesting(false);
-      return;
-    }
     try {
       const r = await fetch("/api/automations", {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ id: selected.id, simulate: true }),
       });
-      const data = await r.json();
-      if (!r.ok) throw new Error("Test failed");
-      setItems((v) => v.map((x) => (x.id === selected.id ? data.workflow : x)));
-      setSelected(data.workflow);
-      setMessage(selected.name + ": safe test passed");
-    } catch {
-      setMessage("Test could not be completed · no external action was taken");
+      const data = await r.json() as AutomationApiPayload;
+      if (!r.ok) throw new Error(data.error || "Test failed");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Test could not be completed");
     } finally {
       setTesting(false);
     }
@@ -220,13 +196,15 @@ export default function Automations() {
     setCreating(true);
     setMessage("Saving paused workflow…");
     try {
-      const response = await fetch("/api/automations", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...workflowForm, clientId: Number(workflowForm.clientId) }) });
-      const data = await response.json();
+      const response = await fetch("/api/automations", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(workflowForm) });
+      const data = await response.json() as AutomationApiPayload;
       if (!response.ok) throw new Error(data.error || "Unable to create workflow");
-      setItems((current) => [...current.filter((item) => item.id > 0), data.workflow]);
+      if (!data.workflow) throw new Error("The created automation was not returned.");
+      const created = data.workflow;
+      setItems((current) => [...current, created]);
       setWorkflowForm(blankWorkflow);
       setView("library");
-      setMessage(`${data.workflow.name}: created paused and ready for review`);
+      setMessage(`${created.name}: blueprint and paused installation created`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to create workflow");
     } finally {
@@ -236,24 +214,24 @@ export default function Automations() {
   return (
     <main className="automation-page">
       <header className="detail-top">
-        <a href="/" className="detail-brand">
+        <Link href="/" className="detail-brand">
           <img src="/cipher-bearagon.png" alt="Cipher, the Bearagon bear" />
           <span>
             <b>BEARAGON</b>
             <small>AUTOMATION CONTROL</small>
           </span>
-        </a>
-        <a href="/" className="back-link">
+        </Link>
+        <Link href="/" className="back-link">
           ← Back to dashboard
-        </a>
+        </Link>
       </header>
       <section className="automation-hero">
         <div>
           <small>CONTROL CENTER</small>
           <h1>Automations</h1>
           <p>
-            Control what runs automatically, what requires approval, and what
-            remains manual.
+            Design delivery here, build in the right harness, and verify the
+            runtime through Console telemetry.
           </p>
         </div>
         <div className="automation-hero-actions">
@@ -266,10 +244,11 @@ export default function Automations() {
           </label>
           <button className="tutorial-button" onClick={() => setTutorialStep(0)}>▶ Start tutorial</button>
           <button
-            className={allPaused ? "activate-all" : "pause-all"}
+            className="pause-all"
             onClick={pauseAll}
+            disabled={!items.length || allPaused}
           >
-            {allPaused ? "Activate workflows" : "Pause all workflows"}
+            {!items.length ? "No installations" : allPaused ? "All requests paused" : "Request pause for all"}
           </button>
         </div>
       </section>
@@ -281,9 +260,14 @@ export default function Automations() {
         {view === "library" ? <>
         <section className="automation-metrics">
           <article>
-            <small>ACTIVE</small>
+            <small>OBSERVED ACTIVE</small>
             <strong>{active}</strong>
-            <span>of {items.length} workflows</span>
+            <span>Reported by a harness</span>
+          </article>
+          <article>
+            <small>ACTIVE REQUESTED</small>
+            <strong>{requested}</strong>
+            <span>Desired runtime state</span>
           </article>
           <article>
             <small>APPROVAL REQUIRED</small>
@@ -291,25 +275,20 @@ export default function Automations() {
             <span>Supervised actions</span>
           </article>
           <article>
-            <small>FAILURES</small>
+            <small>REPORTED FAILURES</small>
             <strong>{failures}</strong>
-            <span>Across recent runs</span>
-          </article>
-          <article>
-            <small>SAFETY STATUS</small>
-            <strong className="safe-status">Protected</strong>
-            <span>Guardrails enabled</span>
+            <span>Never inferred from intent</span>
           </article>
         </section>
         <section className="automation-note" id="safety">
           <img src="/cipher-bearagon.png" alt="" aria-hidden="true" />
           <div>
             <small>CIPHER SAFETY CHECK</small>
-            <h2>External actions are not connected yet</h2>
+            <h2>Ops is the control plane—not the execution harness</h2>
             <p>
-              These controls are ready, but no workflow will send messages,
-              change outside systems, or move money until its connection and
-              approval rules are reviewed.
+              A requested state records operator intent. Only harness
+              acknowledgement and Console telemetry can mark an automation as
+              actually running.
             </p>
           </div>
         </section>
@@ -338,7 +317,7 @@ export default function Automations() {
           </div>
           {loading ? (
             <p className="workflow-loading">Loading workflows…</p>
-          ) : (
+          ) : items.length ? (
             items.map((item) => (
               <article className="workflow-card" key={item.id}>
                 <div className="workflow-main">
@@ -369,13 +348,13 @@ export default function Automations() {
                   </div>
                 </div>
                 <div className="workflow-control">
-                  <span className={item.active ? "state active" : "state"}>
-                    {item.active ? "Active" : "Paused"}
+                  <span className={item.observedState === "active" ? "state active" : "state"}>
+                    Projection: {item.observedState.replaceAll("_", " ")} · {observationLabel(item.lastObservedAt)}
                   </span>
                   <Switch
-                    checked={item.active}
+                    checked={item.desiredState === "active"}
                     onCheckedChange={() => toggle(item)}
-                    aria-label={`Toggle ${item.name}`}
+                    aria-label={`Request ${item.desiredState === "active" ? "pause" : "activation"} for ${item.name}`}
                   />
                 </div>
                 <div className="workflow-footer">
@@ -388,35 +367,49 @@ export default function Automations() {
                     </b>
                   </span>
                   <span>
-                    <small>LAST RUN</small>
-                    <b>{item.lastRunAt || "Not connected"}</b>
+                    <small>DELIVERY / DESIRED</small>
+                    <b>{item.deliveryStage.replaceAll("_", " ")} · {item.desiredState}</b>
                   </span>
                   <span>
-                    <small>STATUS</small>
-                    <b className="never-run">{item.lastRunStatus}</b>
+                    <small>HARNESS / LAST RUN</small>
+                    <b className="never-run">{item.linked ? item.runnerKey : "Not linked"} · {item.lastRunStatus}</b>
                   </span>
                   <button onClick={() => setSelected(item)}>
-                    Review workflow →
+                    Review installation →
                   </button>
                 </div>
               </article>
             ))
+          ) : (
+            <div className="client-workflow-empty">
+              <img src="/cipher-bearagon.png" alt="" aria-hidden="true" />
+              <div>
+                <h3>No automation blueprints yet.</h3>
+                <p>Create the first design here, then link its installation to the delivery harness when it exists.</p>
+                <button onClick={() => setView("create")}>＋ Create automation blueprint</button>
+              </div>
+            </div>
           )}
         </section>
         </> : <section className="workflow-builder">
-          <div className="builder-intro"><img src="/cipher-bearagon.png" alt="Cipher, your workflow guide"/><div><small>CIPHER WORKFLOW BUILDER</small><h2>Create safely, activate later.</h2><p>Define one clear trigger and one approved action. New workflows always begin paused.</p></div></div>
+          <div className="builder-intro"><img src="/cipher-bearagon.png" alt="Cipher, your workflow guide"/><div><small>AUTOMATION BLUEPRINT</small><h2>Specify here. Build in the harness.</h2><p>Capture the business intent, safety boundary, delivery owner, and external workflow link. New installations always begin paused.</p></div></div>
           <form onSubmit={createWorkflow}>
-            <label><span>Client workspace<small>Required for data separation</small></span><select required value={workflowForm.clientId} onChange={(event) => setWorkflowForm({ ...workflowForm, clientId: event.target.value })}><option value="">Select a client…</option>{clients.map((client) => <option value={client.id} key={client.id}>{client.companyName}</option>)}</select></label>
-            <label><span>Workflow name<small>Use a short, specific name</small></span><input required value={workflowForm.name} onChange={(event) => setWorkflowForm({ ...workflowForm, name: event.target.value })} placeholder="Example: Missed-call follow-up"/></label>
-            <label className="builder-wide"><span>Description<small>What business problem does this solve?</small></span><textarea value={workflowForm.description} onChange={(event) => setWorkflowForm({ ...workflowForm, description: event.target.value })} placeholder="Cipher prepares a follow-up task when an important call is missed."/></label>
+            <label><span>Account<small>The business relationship—not a runtime tenant</small></span><select required value={workflowForm.clientId} onChange={(event) => setWorkflowForm({ ...workflowForm, clientId: event.target.value })}><option value="">Select an account…</option>{clients.map((client) => <option value={client.id} key={client.id}>{client.companyName}</option>)}</select></label>
+            <label><span>Automation name<small>Use a short, specific name</small></span><input required value={workflowForm.name} onChange={(event) => setWorkflowForm({ ...workflowForm, name: event.target.value })} placeholder="Example: Missed-call follow-up"/></label>
+            <label className="builder-wide"><span>Objective<small>What business outcome should this create?</small></span><textarea value={workflowForm.objective} onChange={(event) => setWorkflowForm({ ...workflowForm, objective: event.target.value })} placeholder="Ensure every urgent missed call reaches a human owner quickly."/></label>
             <label><span>When this happens…<small>Trigger</small></span><input required value={workflowForm.trigger} onChange={(event) => setWorkflowForm({ ...workflowForm, trigger: event.target.value })} placeholder="RETell marks a call as missed"/></label>
             <label><span>Prepare this action…<small>Action</small></span><input required value={workflowForm.action} onChange={(event) => setWorkflowForm({ ...workflowForm, action: event.target.value })} placeholder="Create a callback task for review"/></label>
             <label><span>Safety level<small>Controls the review expectation</small></span><select value={workflowForm.safetyLevel} onChange={(event) => setWorkflowForm({ ...workflowForm, safetyLevel: event.target.value })}><option>Automatic</option><option>Supervised</option><option>Restricted</option></select></label>
+            <label><span>Delivery owner<small>Person responsible for build and verification</small></span><input value={workflowForm.owner} onChange={(event) => setWorkflowForm({ ...workflowForm, owner: event.target.value })} placeholder="Name or team"/></label>
+            <label><span>Execution harness<small>Where the automation is built</small></span><select value={workflowForm.runnerKey} onChange={(event) => setWorkflowForm({ ...workflowForm, runnerKey: event.target.value })}><option value="unassigned">Not assigned yet</option><option value="n8n">n8n</option><option value="openai">OpenAI / agent harness</option><option value="custom">Custom service</option><option value="other">Other</option></select></label>
+            <label><span>External workflow ID<small>Identifier from the harness; optional now</small></span><input value={workflowForm.externalWorkflowId} onChange={(event) => setWorkflowForm({ ...workflowForm, externalWorkflowId: event.target.value })} placeholder="Example: wf_01H…"/></label>
+            <label><span>Configuration version<small>Version intended for deployment</small></span><input value={workflowForm.configVersion} onChange={(event) => setWorkflowForm({ ...workflowForm, configVersion: event.target.value })} placeholder="Example: 1.0.0"/></label>
+            <label className="builder-wide"><span>Acceptance criteria<small>What a real harness test must prove</small></span><textarea value={workflowForm.acceptanceCriteria} onChange={(event) => setWorkflowForm({ ...workflowForm, acceptanceCriteria: event.target.value })} placeholder="A verified missed call creates exactly one task; urgent calls require human approval."/></label>
             <label className="builder-approval"><input type="checkbox" checked={workflowForm.approvalRequired} onChange={(event) => setWorkflowForm({ ...workflowForm, approvalRequired: event.target.checked })}/><span><b>Require human approval</b><small>Recommended for every client-facing action</small></span></label>
-            <div className="builder-guardrail builder-wide"><b>✓ Safe creation policy</b><span>This saves configuration only. The workflow begins paused and cannot contact an outside service.</span></div>
-            <footer className="builder-wide"><span>{message}</span><button type="button" onClick={() => setView("library")}>Cancel</button><button className="create-workflow-action" disabled={creating || !clients.length}>{creating ? "Creating…" : "Create paused workflow"}</button></footer>
+            <div className="builder-guardrail builder-wide"><b>✓ Separation of control and execution</b><span>This creates a blueprint and installation record only. It never deploys code, changes the observed state, or contacts an outside service.</span></div>
+            <footer className="builder-wide"><span>{message}</span><button type="button" onClick={() => setView("library")}>Cancel</button><button className="create-workflow-action" disabled={creating || !clients.length}>{creating ? "Creating…" : "Create blueprint + paused installation"}</button></footer>
           </form>
-          {!clients.length && <p className="builder-warning">Add a client before creating a client-scoped workflow.</p>}
+          {!clients.length && <p className="builder-warning">Add an account before creating an account-scoped automation.</p>}
         </section>}
       </div>
       <Sheet
@@ -434,16 +427,25 @@ export default function Automations() {
                 <SheetDescription>{selected.description}</SheetDescription>
               </SheetHeader>
               <div className="sheet-body">
+                <div className="guardrail-box">
+                  <b>Control-plane state</b>
+                  <span>Account: {selected.clientName}</span>
+                  <span>Delivery: {selected.deliveryStage.replaceAll("_", " ")}</span>
+                  <span>Desired: {selected.desiredState}</span>
+                   <span>Observed: {selected.observedState}</span>
+                   <span>Observation: {observationLabel(selected.lastObservedAt)}</span>
+                </div>
                 <div className="sheet-step"><i>1</i><span><small>TRIGGER</small><b>{selected.trigger}</b><p>The workflow waits for this verified event.</p></span></div>
                 <div className="sheet-step"><i>2</i><span><small>CONDITION</small><b>Duplicate and permission checks pass</b><p>Unsafe or incomplete requests stop here.</p></span></div>
                 <div className="sheet-step"><i>3</i><span><small>APPROVAL</small><b>{selected.approvalRequired ? "A Bearagon team member must approve" : "No approval required"}</b><p>{selected.approvalRequired ? "The action remains queued until approved." : "This low-risk internal action may continue automatically."}</p></span></div>
                 <div className="sheet-step"><i>4</i><span><small>ACTION</small><b>{selected.action}</b><p>Every result is recorded in the activity log.</p></span></div>
-                <div className="guardrail-box"><b>Guardrails</b><span>✓ Duplicate protection</span><span>✓ Audit logging</span><span>✓ Retry limit</span><span>✓ Emergency pause</span></div>
+                <div className="guardrail-box"><b>Harness link</b><span>Runner: {selected.runnerKey}</span><span>External ID: {selected.externalWorkflowId || "Not linked"}</span><span>Config: {selected.configVersion || "Not versioned"}</span><span>Owner: {selected.owner || "Unassigned"}</span></div>
+                <div className="guardrail-box"><b>Acceptance criteria</b><span>{selected.acceptanceCriteria || "Define the evidence a real harness test must produce."}</span></div>
                 {selected.lastRunAt && <div className="test-result"><b>✓ {selected.lastRunStatus}</b><span>{new Date(selected.lastRunAt).toLocaleString()}</span></div>}
               </div>
               <SheetFooter>
-                <button className="test-button" onClick={testWorkflow} disabled={testing}>{testing ? "Running safe test…" : "Run safe test"}</button>
-                <button className="toggle-button" onClick={() => toggle(selected)}>{selected.active ? "Pause workflow" : "Activate workflow"}</button>
+                <button className="test-button" onClick={testWorkflow} disabled={testing || !selected.linked}>{testing ? "Requesting harness test…" : selected.linked ? "Test through harness" : "Link harness before testing"}</button>
+                <button className="toggle-button" onClick={() => toggle(selected)}>{selected.desiredState === "active" ? "Request pause" : "Request activation"}</button>
               </SheetFooter>
             </>
           )}

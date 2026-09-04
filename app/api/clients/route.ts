@@ -1,39 +1,267 @@
-import { asc, desc } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { getDb } from "../../../db";
-import { clients } from "../../../db/schema";
+import {
+  accountContacts,
+  accounts,
+  contacts,
+  engagements,
+  onboardingTasks,
+  operatorAuditEvents,
+  workspaces,
+} from "../../../db/schema";
+import {
+  displayLabel,
+  newId,
+  normalizeAccountInput,
+} from "../../../lib/ops-domain.mjs";
+import { onboardingTemplate } from "../../../lib/server/onboarding-template";
+import {
+  auditActor,
+  getOperatorIdentity,
+  operatorRequiredResponse,
+} from "../../../lib/server/operator-auth";
 
-const allowedStages = new Set(["Intake", "Connections", "Building", "Testing", "Live"]);
+const activeEngagementStatuses = ["planned", "active", "blocked"];
 
-export async function GET() {
+export async function GET(request: Request) {
+  const actor = await getOperatorIdentity(request);
+  if (!actor) return operatorRequiredResponse();
+
   try {
-    const rows = await getDb().select().from(clients).orderBy(asc(clients.stage), desc(clients.id));
-    return Response.json({ clients: rows });
+    const db = getDb();
+    const [accountRows, engagementRows, contactRows, workspaceRows, taskRows] =
+      await Promise.all([
+        db.select().from(accounts).orderBy(asc(accounts.name)),
+        db
+          .select()
+          .from(engagements)
+          .where(
+            and(
+              eq(engagements.kind, "onboarding"),
+              inArray(engagements.status, activeEngagementStatuses),
+            ),
+          )
+          .orderBy(desc(engagements.createdAt)),
+        db
+          .select({
+            accountId: accountContacts.accountId,
+            displayName: contacts.displayName,
+            email: contacts.email,
+            phone: contacts.phone,
+          })
+          .from(accountContacts)
+          .innerJoin(contacts, eq(accountContacts.contactId, contacts.id))
+          .where(eq(accountContacts.isPrimary, true)),
+        db.select().from(workspaces).orderBy(desc(workspaces.createdAt)),
+        db
+          .select({
+            engagementId: onboardingTasks.engagementId,
+            status: onboardingTasks.status,
+          })
+          .from(onboardingTasks),
+      ]);
+
+    const activeEngagementByAccount = new Map();
+    for (const engagement of engagementRows) {
+      if (!activeEngagementByAccount.has(engagement.accountId)) {
+        activeEngagementByAccount.set(engagement.accountId, engagement);
+      }
+    }
+    const primaryContactByAccount = new Map(
+      contactRows.map((contact) => [contact.accountId, contact]),
+    );
+    const workspaceByAccount = new Map();
+    for (const workspace of workspaceRows) {
+      if (!workspaceByAccount.has(workspace.accountId)) {
+        workspaceByAccount.set(workspace.accountId, workspace);
+      }
+    }
+    const accountByEngagement = new Map(
+      engagementRows.map((engagement) => [engagement.id, engagement.accountId]),
+    );
+    const openTasksByAccount = new Map<string, number>();
+    for (const task of taskRows) {
+      if (["completed", "skipped"].includes(task.status)) continue;
+      const accountId = accountByEngagement.get(task.engagementId);
+      if (!accountId) continue;
+      openTasksByAccount.set(accountId, (openTasksByAccount.get(accountId) ?? 0) + 1);
+    }
+
+    const clients = accountRows.map((account) => {
+      const engagement = activeEngagementByAccount.get(account.id);
+      const contact = primaryContactByAccount.get(account.id);
+      const workspace = workspaceByAccount.get(account.id);
+      return {
+        id: account.id,
+        companyName: account.name,
+        contactName: contact?.displayName ?? "No primary contact",
+        email: contact?.email ?? "",
+        phone: contact?.phone ?? "",
+        relationshipType: account.relationshipType,
+        stage: engagement ? displayLabel(engagement.stage) : "Not started",
+        nextStep: engagement?.nextStep ?? "Start onboarding",
+        dueDate: engagement?.targetDate ?? "",
+        workspaceStatus: workspace?.lifecycle ?? "not_provisioned",
+        openTasks: openTasksByAccount.get(account.id) ?? 0,
+        createdAt: account.createdAt,
+      };
+    });
+
+    return Response.json(
+      { clients },
+      { headers: { "cache-control": "no-store" } },
+    );
   } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : "Unable to load clients" }, { status: 500 });
+    console.error("Unable to load accounts", error);
+    return Response.json(
+      { error: "Unable to load account records." },
+      { status: 500 },
+    );
   }
 }
 
 export async function POST(request: Request) {
+  const actor = await getOperatorIdentity(request);
+  if (!actor) return operatorRequiredResponse();
+
   try {
-    const body = await request.json() as Record<string, unknown>;
-    const companyName = String(body.companyName ?? "").trim();
-    const contactName = String(body.contactName ?? "").trim();
-    const email = String(body.email ?? "").trim().toLowerCase();
-    const phone = String(body.phone ?? "").trim();
-    const stage = String(body.stage ?? "Intake");
-    const dueDate = String(body.dueDate ?? "").trim();
-    if (!companyName || !contactName || !email) {
-      return Response.json({ error: "Company, contact, and email are required." }, { status: 400 });
+    const body = (await request.json()) as Record<string, unknown>;
+    const normalized = normalizeAccountInput(body);
+    if (normalized.error || !normalized.value) {
+      return Response.json({ error: normalized.error }, { status: 400 });
     }
-    if (!/^\S+@\S+\.\S+$/.test(email)) {
-      return Response.json({ error: "Enter a valid email address." }, { status: 400 });
+
+    const value = normalized.value;
+    const db = getDb();
+    const accountId = newId("acct");
+    const engagementId = newId("eng");
+    const now = new Date().toISOString();
+    const relationshipType = value.startOnboarding
+      ? "client"
+      : value.relationshipType;
+    const [existingContact] = await db
+      .select()
+      .from(contacts)
+      .where(eq(contacts.emailNormalized, value.email))
+      .limit(1);
+    const contactId = existingContact?.id ?? newId("contact");
+    const canonicalContact = existingContact ?? {
+      displayName: value.contactName,
+      email: value.email,
+      phone: value.phone,
+    };
+
+    const accountStatement = db.insert(accounts).values({
+      id: accountId,
+      name: value.companyName,
+      relationshipType,
+      updatedAt: now,
+    });
+    const contactStatement = db.insert(contacts).values({
+      id: contactId,
+      displayName: value.contactName,
+      email: value.email,
+      emailNormalized: value.email,
+      phone: value.phone,
+      updatedAt: now,
+    });
+    const relationshipStatement = db.insert(accountContacts).values({
+      accountId,
+      contactId,
+      relationshipRole: "decision_maker",
+      isPrimary: true,
+    });
+    const engagementStatement = db.insert(engagements).values({
+      id: engagementId,
+      accountId,
+      kind: "onboarding",
+      status: "active",
+      stage: value.stage,
+      targetDate: value.targetDate,
+      updatedAt: now,
+    });
+    const taskStatement = db.insert(onboardingTasks).values(
+      onboardingTemplate.map((task, index) => ({
+        id: newId("task"),
+        engagementId,
+        templateKey: task.key,
+        title: task.title,
+        sortOrder: index + 1,
+        updatedAt: now,
+      })),
+    );
+    const auditStatement = db.insert(operatorAuditEvents).values({
+      id: newId("audit"),
+      accountId,
+      resourceType: "account",
+      resourceId: accountId,
+      action: "account.created",
+      ...auditActor(actor),
+      result: "succeeded",
+      detail: value.startOnboarding
+        ? "Created client account and started onboarding"
+        : `Created ${relationshipType} account without provisioning or onboarding`,
+    });
+
+    if (existingContact && value.startOnboarding) {
+      await db.batch([
+        accountStatement,
+        relationshipStatement,
+        engagementStatement,
+        taskStatement,
+        auditStatement,
+      ]);
+    } else if (existingContact) {
+      await db.batch([
+        accountStatement,
+        relationshipStatement,
+        auditStatement,
+      ]);
+    } else if (value.startOnboarding) {
+      await db.batch([
+        accountStatement,
+        contactStatement,
+        relationshipStatement,
+        engagementStatement,
+        taskStatement,
+        auditStatement,
+      ]);
+    } else {
+      await db.batch([
+        accountStatement,
+        contactStatement,
+        relationshipStatement,
+        auditStatement,
+      ]);
     }
-    if (!allowedStages.has(stage)) {
-      return Response.json({ error: "Invalid onboarding stage." }, { status: 400 });
-    }
-    const [client] = await getDb().insert(clients).values({ companyName, contactName, email, phone, stage, dueDate }).returning();
-    return Response.json({ client }, { status: 201 });
+
+    return Response.json(
+      {
+        client: {
+          id: accountId,
+          companyName: value.companyName,
+          contactName: canonicalContact.displayName,
+          email: canonicalContact.email,
+          phone: canonicalContact.phone,
+          relationshipType,
+          stage: value.startOnboarding ? displayLabel(value.stage) : "Not started",
+          nextStep: value.startOnboarding
+            ? "Complete discovery form"
+            : "Start onboarding",
+          dueDate: value.startOnboarding ? value.targetDate : "",
+          workspaceStatus: "not_provisioned",
+          openTasks: value.startOnboarding ? onboardingTemplate.length : 0,
+          contactReused: Boolean(existingContact),
+          createdAt: now,
+        },
+      },
+      { status: 201 },
+    );
   } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : "Unable to create client" }, { status: 500 });
+    console.error("Unable to create account", error);
+    return Response.json(
+      { error: "Unable to create the account. Please try again." },
+      { status: 500 },
+    );
   }
 }

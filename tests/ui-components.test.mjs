@@ -13,8 +13,9 @@ const vite = await createServer({
   appType: "custom",
   configFile: false,
   root,
+  cacheDir: path.join(root, ".vite-test-cache", "ui"),
   resolve: { alias: { "@": root } },
-  server: { middlewareMode: true },
+  server: { middlewareMode: true, hmr: { port: 24680 } },
 });
 
 after(async () => {
@@ -35,17 +36,14 @@ async function readCssTree(directory) {
   return contents.join("\n");
 }
 
-test("emits the catalog's animation and scrolling utilities", async () => {
+test("emits the Ops automation and responsive workspace styles", async () => {
   const css = await readCssTree(path.join(root, "dist"));
 
-  assert.match(css, /--tw-enter-opacity/);
-  assert.match(css, /scrollbar-width:\s*thin/);
-  assert.match(css, /scrollbar-width:\s*none/);
-  assert.match(css, /scrollbar-gutter:\s*stable/);
-  assert.match(css, /scroll-fade-reveal-b/);
-  assert.match(css, /mask-image:/);
-  assert.match(css, /tw-shimmer/);
-  assert.match(css, /prefers-reduced-motion:\s*reduce/);
+  assert.match(css, /\.automation-page\{/);
+  assert.match(css, /\.workflow-card\{/);
+  assert.match(css, /\.state\.active\{/);
+  assert.match(css, /\.client-workspace-tabs\{/);
+  assert.match(css, /@media\s*\(width<=780px\)/);
 });
 
 test("forwards progress semantics to the primitive", async () => {

@@ -1,113 +1,71 @@
-# vinext-starter
+# Bearagon Ops
 
-A clean full-stack starter running on
-[vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
-Drizzle support.
+Bearagon Ops is the internal operator surface for Bearagon's consulting business. It owns accounts, contacts, onboarding engagements, workspaces, delivery specifications, and human decisions. Bearagon Console remains the client-facing surface and the source of truth for automation runs, connector health, evidence, and observed runtime state.
 
-## Prerequisites
+The product boundary is deliberate:
 
-- Node.js `>=22.13.0`
-- Linux with `flock`, `curl`, and GNU `timeout`
+- Ops records what Bearagon intends to deliver.
+- An external automation harness builds and executes workflows.
+- Console records what the runtime actually did.
+- Ops reads Console status through a server-side adapter; browser code never receives Console credentials.
 
-## Sites Lifecycle
+See [ADR 0001](docs/architecture/0001-two-surfaces-one-platform.md) for the decision and migration sequence.
 
-The Sites lifecycle CLI runs the locked dependency install before returning this checkout. Edit the source under `app/`, then checkpoint when a coherent milestone is ready to inspect or share. The remote Sites builder runs `npm run build` against the pushed commit. Do not repeat install or build as a normal pre-checkpoint step.
+## Current milestone
 
-This starter does not use `wrangler.jsonc`.
+The first production-oriented vertical slice includes:
 
-`install:ci` is intentionally a single, non-retrying `npm ci`. It refuses a concurrent install for the same project, consumes a matching image-seeded npm cache with `--prefer-offline` while retaining registry fallback for a missing cache object, otherwise downloads and verifies the complete vinext tarball recorded in `package-lock.json`, limits npm to one socket, and terminates a stalled install. `build` applies a short timeout. These helpers target Linux and use GNU `timeout`; they are not native macOS scripts.
+- canonical UUID-based accounts and reusable contacts;
+- account and contact capture without automatic onboarding or tenant creation;
+- explicit, atomic conversion into a client onboarding engagement and checklist;
+- optional workspaces, so a prospect is not silently provisioned as a tenant;
+- automation blueprints separated from account installations;
+- delivery stage, desired state, and observed state as different facts;
+- idempotent decision requests and actor-attributed audit events;
+- authenticated APIs, with a local-development operator fallback only;
+- a read-only, server-side adapter for Console status;
+- migration and domain tests that start from an empty database.
 
-Scripts that need writable project-scoped home, npm, XDG, and temporary paths use `scripts/sites-env.sh`. The `dev` and `start` scripts honor the caller's runtime environment and keep Wrangler logs inside the checkout. The generated `.sites-runtime/` directory is disposable and ignored by Git.
+Legacy prototype tables remain in the migration chain for rollback, but the rewritten application routes do not dual-write to them.
 
-## Included Shape
+The `/connections`, `/communications`, `/cipher`, and `/security` routes are retained as design references only. They are intentionally absent from the primary navigation and are not connected to operational data.
 
-- edit site code under `app/`
-- `app/chatgpt-auth.ts` provides optional dispatch-owned ChatGPT sign-in helpers
-- `.openai/hosting.json` declares optional Sites D1 and R2 bindings
-- `vite.config.ts` simulates declared bindings for local development
-- `db/index.ts` reads the D1 binding from the Cloudflare Worker environment
-- `db/schema.ts` starts intentionally empty
-- `examples/d1/` contains an optional D1 example surface
-- `drizzle.config.ts` supports local migration generation when needed
+## Local development
 
-## Workspace Auth Headers
+Requirements: Node.js 22.13 or newer.
 
-OpenAI workspace sites can read the current user's email from
-`oai-authenticated-user-email`.
-
-SIWC-authenticated workspace sites may also receive
-`oai-authenticated-user-full-name` when the user's SIWC profile has a non-empty
-`name` claim. The full-name value is percent-encoded UTF-8 and is accompanied by
-`oai-authenticated-user-full-name-encoding: percent-encoded-utf-8`.
-
-Treat the full name as optional and fall back to email when it is absent:
-
-```tsx
-import { headers } from "next/headers";
-
-export default async function Home() {
-  const requestHeaders = await headers();
-  const email = requestHeaders.get("oai-authenticated-user-email");
-  const encodedFullName = requestHeaders.get("oai-authenticated-user-full-name");
-  const fullName =
-    encodedFullName &&
-    requestHeaders.get("oai-authenticated-user-full-name-encoding") ===
-      "percent-encoded-utf-8"
-      ? decodeURIComponent(encodedFullName)
-      : null;
-
-  const displayName = fullName ?? email;
-  // ...
-}
+```powershell
+npm ci
+npm run db:migrate:local
+$env:WRANGLER_WRITE_LOGS = "false"
+$env:WRANGLER_LOG_PATH = ".wrangler/logs"
+npx vite
 ```
 
-## Optional Dispatch-Owned ChatGPT Sign-In
+Open `http://localhost:5173`. Vite development builds use a fixed local operator identity that is compiled out of production builds. Hosted requests require the identity headers supplied by Sites, an explicit `BEARAGON_OPERATOR_EMAILS` allowlist, and an owner/operator access policy.
 
-Import the ready-to-use helpers from `app/chatgpt-auth.ts` when the site needs
-optional or required ChatGPT sign-in:
+Useful verification commands:
 
-- Use `getChatGPTUser()` for optional signed-in UI.
-- Use `requireChatGPTUser(returnTo)` for server-rendered pages that should send
-  anonymous visitors through Sign in with ChatGPT.
-- In a Server Component, start sign-in with
-  `<a href={chatGPTSignInPath(returnTo)} target="_top">`. The auth helper
-  module is server-only; do not import it into a Client Component.
-- Do not use `fetch`, XHR, a client-side router, or a framework link that can
-  prefetch the sign-in route. SIWC must start as a top-level navigation.
-- Never request the AuthAPI authorization endpoint directly. The dispatch-owned
-  `/signin-with-chatgpt` route must start the SIWC flow.
-- Use `chatGPTSignOutPath(returnTo)` for browser sign-out links or actions.
-- Pass a same-origin relative `returnTo` path for the destination after sign-in
-  or sign-out. The helper validates and safely encodes it.
-- Mark protected pages with `export const dynamic = "force-dynamic"` because
-  they depend on per-request identity headers.
+```powershell
+node --test tests/*.test.mjs
+npx tsc --noEmit
+npx vinext build
+```
 
-Dispatch owns `/signin-with-chatgpt`, `/signout-with-chatgpt`, `/callback`, the
-OAuth cookies, and identity header injection. Do not implement app routes for
-those reserved paths. Routes that do not import and call the helper remain
-anonymous-compatible.
+## Console read adapter
 
-SIWC establishes identity only; it does not prove workspace membership. Use the
-Sites hosting platform's access policy controls for workspace-wide restrictions,
-or enforce explicit server-side membership or allowlist checks.
+Configure these as server-side runtime variables; do not expose them with a `NEXT_PUBLIC_` prefix:
 
-Use SIWC for account pages, user-specific dashboards, saved records, and write
-actions tied to the current ChatGPT user. Leave public content anonymous.
+- `BEARAGON_OPERATOR_EMAILS`: comma-separated allowlist for API access. Hosted APIs deny access when this is unset.
+- `CONSOLE_API_URL`: base URL of the Console API, without a trailing slash.
+- `CONSOLE_READ_TOKEN`: a read-only operator credential.
 
-## Diagnostic Commands
+Link an Ops workspace to the matching Console client by setting `workspaces.console_client_id`. Until that link and the server variables exist, the UI reports an explicit `not_linked` or `not_configured` state rather than inventing health data.
 
-- `npm run install:ci`: perform the one bounded lockfile install
-- `npm run dev`: start the Vite/Vinext development server
-- `npm run build`: build the deployable Sites artifact
-- `npm run start`: start the built Vinext application
-- `npm test`: build and verify the rendered development-preview metadata
-- `npm run db:generate`: generate Drizzle migrations after schema changes
+Console payloads are runtime-validated before the UI receives them. Ops labels its stored observed state as a timestamped projection; operator routes cannot update that projection.
 
-Use build commands for targeted diagnosis after a remote failure, not as part of the normal checkpoint path.
+## Safety boundary
 
-The timeout defaults can be overridden for a controlled canary with `SITES_INSTALL_TIMEOUT`, `SITES_INSTALL_KILL_AFTER`, `SITES_BUILD_TIMEOUT`, and `SITES_BUILD_KILL_AFTER`. A timeout fails the command; the helpers never retry an unchanged install or build.
+Requesting activation changes `desired_state`; it never changes `observed_state`. Activation requires an active workspace, a ready blueprint, a deployed delivery stage, and a complete harness reference. A “safe test” is rejected until a real harness adapter exists, so the application cannot record a fabricated successful run.
 
-## Learn More
-
-- [vinext Documentation](https://github.com/cloudflare/vinext)
-- [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
+The next vertical slice is the harness command/acknowledgement contract: scoped credentials, idempotent commands, runner acknowledgement, and telemetry reconciliation. It should be implemented before enabling live activation, pause, retry, or approved-action execution.

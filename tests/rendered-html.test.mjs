@@ -1,33 +1,29 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import path from "node:path";
+import test, { after } from "node:test";
+import { fileURLToPath } from "node:url";
+import { createServer } from "vite";
 
-const developmentPreviewMeta =
-  /<meta(?=[^>]*\bname=["']codex-preview["'])(?=[^>]*\bcontent=["']development["'])[^>]*>/i;
+const root = fileURLToPath(new URL("..", import.meta.url));
+const vite = await createServer({
+  appType: "custom",
+  configFile: false,
+  root,
+  cacheDir: path.join(root, ".vite-test-cache", "rendered"),
+  server: { middlewareMode: true, hmr: { port: 24679 } },
+});
 
-test("renders development preview metadata", async () => {
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
-  const { default: worker } = await import(workerUrl.href);
+after(async () => {
+  await vite.close();
+});
 
-  const response = await worker.fetch(
-    new Request("http://localhost/", {
-      headers: { accept: "text/html" },
-    }),
-    {
-      ASSETS: {
-        fetch: async () => new Response("Not found", { status: 404 }),
-      },
-    },
-    {
-      waitUntil() {},
-      passThroughOnException() {},
-    },
-  );
+test("publishes private Bearagon Ops metadata", async () => {
+  const { metadata } = await vite.ssrLoadModule("/app/layout.tsx");
 
-  assert.equal(response.status, 200);
-  assert.match(
-    response.headers.get("content-type") ?? "",
-    /^text\/html\b/i,
-  );
-  assert.match(await response.text(), developmentPreviewMeta);
+  assert.equal(metadata.title.default, "Bearagon Ops");
+  assert.equal(metadata.applicationName, "Bearagon Ops");
+  assert.equal(metadata.robots.index, false);
+  assert.equal(metadata.robots.follow, false);
+  assert.equal(metadata.openGraph, undefined);
+  assert.equal(metadata.twitter, undefined);
 });
