@@ -177,14 +177,14 @@ export default function Home() {
         </div>
       </aside>
       <section className="workspace" id="overview">
-        <header>
-          <div>
+        <header className="ops-header">
+          <div className="ops-header-copy">
             <small>BEARAGON OPS</small>
             <h1>Your consulting operations command center.</h1>
           </div>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <button>＋ Add account</button>
+              <button className="ops-header-action">＋ Add account</button>
             </DialogTrigger>
             <DialogContent className="crm-dialog">
               <form onSubmit={addClient}>
