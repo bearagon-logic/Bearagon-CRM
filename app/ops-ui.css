@@ -1,0 +1,196 @@
+/* Shared operating shell and CRM work surfaces. This layer intentionally sits
+   after the original styles while the underlying product views are unified. */
+:root {
+  --ops-navy: #061b36;
+  --ops-navy-2: #0b2d54;
+  --ops-blue: #2e91d0;
+  --ops-blue-soft: #e9f5fd;
+  --ops-canvas: #f3f7fb;
+  --ops-card: #ffffff;
+  --ops-border: #d8e2ec;
+  --ops-text: #102a45;
+  --ops-muted: #63778c;
+}
+
+body { background: var(--ops-canvas); color: var(--ops-text); }
+button, input, select, textarea { font-family: Arial, sans-serif; }
+
+.ops-app-shell { min-height: 100vh; display: grid; grid-template-columns: 232px minmax(0, 1fr); background: var(--ops-canvas); }
+.ops-app-main { min-width: 0; }
+.ops-sidebar { position: sticky; top: 0; z-index: 60; height: 100dvh; padding: 20px 13px 15px; display: flex; flex-direction: column; background: linear-gradient(180deg, #061b36 0%, #071f3e 58%, #06182f 100%); color: #eff7ff; border-right: 1px solid #173b62; }
+.ops-sidebar-top { min-height: 55px; display: flex; align-items: center; justify-content: space-between; padding: 0 8px 12px; }
+.ops-brand { display: flex; min-width: 0; align-items: center; gap: 10px; color: #fff; text-decoration: none; }
+.ops-brand img { width: 52px; height: 52px; object-fit: cover; object-position: center 26%; border: 1px solid #5bb8f2; border-radius: 12px; background: #02060b; box-shadow: 0 0 20px #2c9bdd4d; }
+.ops-brand span { display: grid; gap: 4px; }
+.ops-brand b { color: #eef7ff; font-size: 11px; letter-spacing: .16em; }
+.ops-brand small { color: #8fcbed; font-size: 9px; font-weight: 800; letter-spacing: .18em; }
+.ops-menu-button { display: none; width: 38px; height: 38px; place-items: center; border: 1px solid #2c537c; border-radius: 8px; background: #0d3158; color: #e8f4ff; }
+.ops-menu-button svg { width: 19px; height: 19px; }
+.ops-add-account { min-height: 42px; margin: 11px 5px 21px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid #7acbf3; border-radius: 8px; background: #eaf7ff; color: #0c3155; text-decoration: none; font-size: 13px; font-weight: 800; box-shadow: 0 5px 15px #010f203b; }
+.ops-add-account svg { width: 16px; height: 16px; }
+.ops-navigation { display: grid; gap: 26px; }
+.ops-nav-group { display: grid; gap: 3px; }
+.ops-nav-group > small { padding: 0 11px 7px; color: #7fa2c3; font-size: 10px; font-weight: 800; letter-spacing: .13em; }
+.ops-sidebar .ops-navigation a { min-height: 41px; display: flex; align-items: center; gap: 11px; padding: 0 11px; border-radius: 8px; color: #bcd1e4; text-decoration: none; font-size: 14px; font-weight: 700; transition: background .16s ease, color .16s ease; }
+.ops-sidebar .ops-navigation a > svg:first-child { width: 17px; height: 17px; flex: 0 0 auto; color: #8ecdf1; }
+.ops-sidebar .ops-navigation a:hover { background: #10365e; color: #fff; }
+.ops-sidebar .ops-navigation a.active { background: linear-gradient(90deg, #174c7e, #123b65); color: #fff; box-shadow: inset 3px 0 #87d6fb; }
+.ops-sidebar .ops-navigation a.active > svg:first-child { color: #d8f4ff; }
+.ops-nav-chevron { width: 14px !important; height: 14px !important; margin-left: auto; color: #6b94b6 !important; }
+.ops-sidebar-footer { margin-top: auto; display: flex; align-items: center; gap: 9px; padding: 16px 9px 4px; border-top: 1px solid #1c4268; }
+.ops-operator-avatar { width: 31px; height: 31px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 50%; background: #a8ddf8; color: #0a294b; font-size: 10px; font-weight: 800; }
+.ops-sidebar-footer > span:last-child { min-width: 0; display: grid; gap: 3px; }
+.ops-sidebar-footer b { color: #e5f1fb; font-size: 10px; }
+.ops-sidebar-footer small { color: #81a2c0; font-size: 9px; }
+
+.ops-app-main .detail-top { display: none; }
+.ops-app-main .workspace { min-height: 100vh; }
+.ops-app-main .workspace > header.ops-accounts-header { min-height: 150px; padding: 25px clamp(24px, 4vw, 58px); gap: 24px; background-color: #071b34; background-image: linear-gradient(90deg, rgba(4, 20, 39, .96) 0%, rgba(5, 25, 48, .84) 40%, rgba(5, 27, 50, .24) 100%), url('/bearagon-ops-header.webp'); background-position: center; background-size: cover; border-bottom-color: #255679; }
+.ops-app-main .workspace > header.ops-accounts-header::after { display: none; }
+.ops-header-copy { max-width: 670px; }
+.ops-header-copy small, .ops-page-header small, .record-breadcrumb { color: #8bcff3; font-size: 11px; font-weight: 800; letter-spacing: .13em; }
+.ops-header-copy h1 { margin: 5px 0 4px; color: #fff; font: 600 clamp(30px, 3vw, 40px)/1.08 Georgia, serif; }
+.ops-header-copy p { max-width: 630px; margin: 0; color: #d0e5f2; font-size: 15px; line-height: 1.5; }
+.ops-header-action { min-width: 128px; min-height: 43px; border: 1px solid #d9ecf8 !important; border-radius: 8px !important; background: #f5fbff !important; color: #0c3155 !important; font-size: 13px !important; font-weight: 800 !important; box-shadow: 0 6px 20px #020b1835 !important; }
+.ops-account-content { max-width: 1440px; padding: 26px clamp(20px, 3.2vw, 48px) 58px; gap: 20px; background: linear-gradient(135deg, #f3f8fc 0%, #edf4f9 100%); }
+.ops-account-content .panel, .ops-account-content .metrics { border-color: var(--ops-border); border-radius: 12px; box-shadow: 0 8px 28px #0b31530c; }
+.account-directory { overflow: hidden; }
+.account-directory-head { min-height: 87px; padding: 21px 26px 15px; }
+.account-directory .panelhead small, .ops-account-content .panelhead small { color: #678096; font-size: 11px; }
+.account-directory .panelhead h2, .ops-account-content .panelhead h2 { margin-top: 5px; color: var(--ops-text); font-size: 24px; }
+.account-search { width: min(320px, 42vw) !important; min-height: 42px; display: flex; align-items: center; gap: 8px; padding: 0 12px !important; border-color: #ccd9e5 !important; border-radius: 8px !important; color: #658198 !important; }
+.account-search svg { width: 17px; height: 17px; flex: 0 0 auto; }
+.account-search input { font-size: 14px !important; }
+.account-filter-row { min-height: 54px; display: flex; align-items: center; gap: 13px; padding: 0 26px; border-top: 1px solid #e5edf4; border-bottom: 1px solid #dce6ef; background: #fbfdff; }
+.account-filter-row > span:first-child { color: #60758a; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.account-filter-row .tabs { min-width: 0; flex: 1; padding: 6px 0; border: 0; }
+.account-filter-row .tabs button { padding: 8px 11px; color: #536b80; font-size: 12px; }
+.account-filter-row .tabs button.selected { background: #0b3156; color: #fff; }
+.account-count { color: #63798d; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.account-rows .row { grid-template-columns: 1.45fr .7fr .82fr 1.28fr .65fr; gap: 14px; padding: 0 26px; }
+.account-rows .labels { min-height: 40px; background: #f3f7fa; color: #647a8e; font-size: 10px; }
+.account-rows .client { min-height: 72px; color: var(--ops-text); font-size: 14px; }
+.account-rows .client:hover { background: #f5faff; }
+.account-rows .name i { width: 35px; height: 35px; border-radius: 9px; font-size: 10px; }
+.account-rows .name b { font-size: 14px; }
+.account-rows .name > span small { font-size: 12px; line-height: 1.35; }
+.relationship-cell { color: #516b82; text-transform: capitalize; font-size: 13px; }
+.next-action-cell { color: #294761; font-size: 13px; line-height: 1.35; }
+.target-cell { display: flex; align-items: center; justify-content: space-between; gap: 6px; color: #536e84; font-size: 13px; }
+.target-cell svg { width: 15px; height: 15px; color: #287caf; }
+.pill { padding: 6px 9px; font-size: 11px; text-transform: capitalize; }
+.pill.building { background: #e7f0fb; color: #275f91; }
+.account-empty { min-height: 235px; }
+.account-empty b { color: var(--ops-text); font-size: 20px; }
+.account-empty span { max-width: 370px; font-size: 14px; line-height: 1.5; }
+.account-empty button { min-height: 39px; padding: 0 15px; font-size: 13px; }
+.ops-account-lower-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(300px, .9fr); gap: 20px; align-items: start; }
+.ops-account-lower-grid .tasks { margin: 0; }
+.ops-account-lower-grid .panelhead { padding: 20px 25px 14px; }
+.subtle-link { display: flex; align-items: center; gap: 6px; color: #17699f; text-decoration: none; font-size: 13px; font-weight: 800; }
+.subtle-link svg, .task.queue > svg { width: 16px; height: 16px; }
+.task.queue { min-height: 70px; padding: 0 25px; }
+.task.queue > span b { font-size: 13px; }
+.task.queue > span small { font-size: 12px; line-height: 1.35; }
+.compact-empty { min-height: 130px; padding: 25px; }
+.ops-metrics { grid-template-columns: 1fr !important; }
+.ops-metrics article { min-height: 102px; padding: 20px 23px; border-right: 0; border-bottom: 1px solid var(--ops-border); }
+.ops-metrics article:last-child { border-bottom: 0; }
+.ops-metrics small { font-size: 10px; }
+.ops-metrics strong { font-size: 30px; }
+.ops-metrics span { font-size: 12px; }
+
+.crm-dialog { max-width: 630px; border-color: #cddce9; border-radius: 13px; }
+.crm-dialog .form-grid label { color: #28455f; font-size: 13px; }
+.crm-dialog .form-grid select { font-size: 14px; }
+.form-choice small { font-size: 12px; }
+
+.record-breadcrumb { max-width: 1240px; margin: 0 auto; padding: 18px 40px 0; display: flex; gap: 8px; text-transform: uppercase; }
+.record-breadcrumb a { color: #176b9f; text-decoration: none; }
+.record-breadcrumb span:last-child { max-width: 40ch; overflow: hidden; color: #70879b; text-overflow: ellipsis; white-space: nowrap; }
+.ops-app-main .detail-page { min-height: 100vh; background: linear-gradient(135deg, #f3f8fc, #edf4f9); }
+.ops-app-main .detail-hero { min-height: 130px; max-width: 1240px; margin: 0 auto; padding: 22px 40px; background: transparent; border: 0; }
+.ops-app-main .detail-hero h1 { color: var(--ops-text); }
+.ops-app-main .client-workspace-tabs { top: 0; padding: 0 max(24px, calc((100vw - 1240px) / 2)); background: #fff; }
+.ops-app-main .client-workspace-tabs button { padding: 15px 17px; font-size: 12px; }
+.ops-app-main .client-workspace-tabs button.active { color: #126fa8; border-bottom-color: #248bca; }
+.ops-app-main .detail-content { padding-bottom: 55px; }
+.client-onboarding-grid { padding-top: 0 !important; }
+
+/* Every specialist view now lives under the same navigation and starts with a
+   compact task-oriented page header rather than a second product masthead. */
+.ops-app-main .automation-page, .ops-app-main .approvals-page, .ops-app-main .connections-page, .ops-app-main .communications-page, .ops-app-main .security-page, .ops-app-main .cipher-page { min-height: 100vh; background: #f3f8fc; }
+.ops-app-main .automation-hero, .ops-app-main .approvals-hero, .ops-app-main .connections-hero, .ops-app-main .communications-hero, .ops-app-main .security-hero, .ops-app-main .cipher-hero { border-top: 0; }
+.ops-app-main .automation-hero h1, .ops-app-main .approvals-hero h1, .ops-app-main .connections-hero h1, .ops-app-main .communications-hero h1, .ops-app-main .security-hero h1, .ops-app-main .cipher-hero h1 { font-size: clamp(28px, 3vw, 38px); }
+.ops-app-main .automation-content, .ops-app-main .approvals-content, .ops-app-main .connections-content, .ops-app-main .communications-content, .ops-app-main .security-content, .ops-app-main .cipher-content { padding-bottom: 56px; }
+.security-paused b { font-size: 15px; }
+.security-paused span { font-size: 13px; line-height: 1.45; }
+
+@media (max-width: 1080px) {
+  .ops-app-shell { grid-template-columns: 78px minmax(0, 1fr); }
+  .ops-sidebar { padding-inline: 11px; }
+  .ops-sidebar-top { justify-content: center; padding-inline: 0; }
+  .ops-brand span, .ops-add-account span, .ops-nav-group > small, .ops-sidebar .ops-navigation a span, .ops-nav-chevron, .ops-sidebar-footer > span:last-child { display: none; }
+  .ops-brand img { width: 52px; height: 52px; }
+  .ops-add-account { width: 48px; margin: 13px auto 23px; }
+  .ops-sidebar .ops-navigation a { justify-content: center; padding: 0; }
+  .ops-sidebar .ops-navigation a > svg:first-child { width: 19px; height: 19px; }
+  .ops-sidebar-footer { justify-content: center; padding-inline: 0; }
+  .ops-account-lower-grid { grid-template-columns: minmax(0, 1.35fr) minmax(250px, .8fr); }
+  .account-rows .row { grid-template-columns: 1.5fr .83fr 1.1fr .68fr; }
+  .account-rows .row > span:nth-child(2) { display: none; }
+  .account-rows .labels > span:nth-child(2) { display: none; }
+}
+
+@media (max-width: 760px) {
+  .ops-app-shell { display: block; }
+  .ops-sidebar { position: sticky; height: auto; min-height: 69px; padding: 8px 14px; border-bottom: 1px solid #1c476e; border-right: 0; }
+  .ops-sidebar-top { min-height: 51px; justify-content: space-between; padding: 0; }
+  .ops-brand span { display: grid; }
+  .ops-brand img { width: 45px; height: 45px; }
+  .ops-menu-button { display: grid; }
+  .ops-add-account, .ops-navigation, .ops-sidebar-footer { display: none; }
+  .ops-sidebar.menu-open .ops-add-account { display: flex; width: auto; margin: 8px 0 14px; }
+  .ops-sidebar.menu-open .ops-add-account span { display: inline; }
+  .ops-sidebar.menu-open .ops-navigation { display: grid; padding-bottom: 10px; }
+  .ops-sidebar.menu-open .ops-nav-group > small, .ops-sidebar.menu-open .ops-navigation a span { display: block; }
+  .ops-sidebar.menu-open .ops-navigation a { justify-content: flex-start; padding: 0 11px; }
+  .ops-sidebar.menu-open .ops-nav-chevron { display: block; }
+  .ops-app-main .workspace > header.ops-accounts-header { min-height: 150px; padding: 24px 19px; background-position: 58% center; }
+  .ops-header-copy p { font-size: 14px; }
+  .ops-header-action { min-width: 106px; }
+  .ops-account-content { padding: 16px 12px 38px; }
+  .account-directory-head { min-height: 0; padding: 18px 16px 13px; gap: 14px; }
+  .account-search { width: 100% !important; }
+  .account-filter-row { align-items: flex-start; flex-direction: column; gap: 5px; padding: 11px 16px 7px; }
+  .account-filter-row .tabs { width: 100%; }
+  .account-count { align-self: flex-end; margin-top: -31px; }
+  .account-rows .row { grid-template-columns: 1fr auto; gap: 12px; padding: 0 16px; }
+  .account-rows .row > span:nth-child(3), .account-rows .row > span:nth-child(4) { display: none; }
+  .account-rows .labels > span:nth-child(3), .account-rows .labels > span:nth-child(4) { display: none; }
+  .account-rows .client { min-height: 75px; }
+  .target-cell { min-width: 74px; font-size: 12px; }
+  .ops-account-lower-grid { grid-template-columns: 1fr; gap: 16px; }
+  .ops-metrics { grid-template-columns: repeat(3, 1fr) !important; }
+  .ops-metrics article { min-height: 105px; padding: 16px; border-right: 1px solid var(--ops-border); border-bottom: 0; }
+  .ops-metrics article:last-child { border-right: 0; }
+  .ops-metrics strong { font-size: 25px; }
+  .ops-metrics span { font-size: 11px; }
+  .record-breadcrumb { padding: 14px 18px 0; }
+  .ops-app-main .detail-hero { min-height: 0; padding: 17px 18px; }
+  .ops-app-main .detail-content { padding: 18px 12px 42px; }
+  .ops-app-main .client-workspace-tabs { padding-inline: 12px; }
+  .ops-app-main .automation-hero, .ops-app-main .approvals-hero, .ops-app-main .connections-hero, .ops-app-main .communications-hero, .ops-app-main .security-hero, .ops-app-main .cipher-hero { padding-top: 22px; }
+}
+
+@media (max-width: 500px) {
+  .ops-header-copy h1 { font-size: 30px; }
+  .ops-header-copy p { display: none; }
+  .ops-app-main .workspace > header.ops-accounts-header { min-height: 112px; }
+  .ops-metrics { grid-template-columns: 1fr !important; }
+  .ops-metrics article { min-height: 84px; display: grid; grid-template-columns: 1fr auto; gap: 2px; border-right: 0; border-bottom: 1px solid var(--ops-border); }
+  .ops-metrics article:last-child { border-bottom: 0; }
+  .ops-metrics small { grid-column: 1 / -1; }
+  .ops-metrics span { text-align: right; align-self: end; }
+  .ops-app-main .detail-side { grid-template-columns: 1fr; }
+}

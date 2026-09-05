@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { AppShell } from "@/components/app-shell";
 
 type Item = { id:number; type:"Call"|"Text"; name:string; contact:string; time:string; category:string; priority:"Urgent"|"Normal"|"Spam"; summary:string; transcript:string };
 const initialItems:Item[] = [
@@ -18,8 +19,8 @@ export default function Communications(){
   const [escalated,setEscalated]=useState<number[]>([]);
   const [rules,setRules]=useState({disclosure:true,sensitive:true,emergency:true,recording:false});
   const visible=useMemo(()=>initialItems.filter(item=>filter==="All"||(filter==="Urgent"&&item.priority==="Urgent")||(filter==="Needs reply"&&item.priority!=="Spam"&&!handled.includes(item.id))||(filter==="Filtered"&&item.priority==="Spam")),[filter,handled]);
-  return <main className="communications-page">
-    <header className="detail-top"><a href="/" className="detail-brand"><img src="/cipher-bearagon.png" alt="Cipher, the Bearagon bear"/><span><b>BEARAGON</b><small>CALLS & MESSAGES</small></span></a><a href="/" className="back-link">← Back to dashboard</a></header>
+  useEffect(()=>{if(!visible.some((item)=>item.id===selected.id))setSelected(visible[0]||initialItems[0])},[visible,selected.id]);
+  return <AppShell><main className="communications-page">
     <section className="communications-hero"><div><small>CLIENT COMMUNICATIONS</small><h1>Every caller gets a clear next step.</h1><p>Answer, filter, summarize, and route inbound conversations with human control.</p></div><a href="/security">Review safeguards →</a></section>
     <div className="communications-content">
       <section className="communications-metrics"><article><small>NEW TODAY</small><strong>3</strong><span>Calls and messages</span></article><article><small>URGENT</small><strong>1</strong><span>Needs human callback</span></article><article><small>FILTERED</small><strong>1</strong><span>Likely solicitation</span></article><article><small>AVERAGE ANSWER</small><strong>&lt; 10s</strong><span>Target response time</span></article></section>
@@ -52,5 +53,5 @@ export default function Communications(){
       </section>
       <section className="phone-flow" id="phone-flow"><img src="/cipher-bearagon.png" alt="" aria-hidden="true"/><div><small>CIPHER CALL FLOW</small><h2>Greet → Verify → Understand → Route → Log</h2><p>No promises, payments, or sensitive disclosures without an authorized person.</p></div></section>
     </div>
-  </main>;
+  </main></AppShell>;
 }

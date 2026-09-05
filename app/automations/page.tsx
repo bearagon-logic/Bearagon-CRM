@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Switch } from "@/components/ui/switch";
 import {
   Sheet,
@@ -10,6 +10,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { AppShell } from "@/components/app-shell";
 type Workflow = {
   id: string;
   clientId: string;
@@ -93,6 +94,7 @@ const tutorialSteps = [
   },
 ];
 export default function Automations() {
+  const searchParams = useSearchParams();
   const [items, setItems] = useState<Workflow[]>([]),
     [loading, setLoading] = useState(true),
     [message, setMessage] = useState(""),
@@ -120,6 +122,11 @@ export default function Automations() {
   useEffect(() => {
     fetch("/api/clients").then((response) => response.json() as Promise<ClientApiPayload>).then((data) => setClients(data.clients || [])).catch(() => setClients([]));
   }, []);
+  useEffect(() => {
+    const accountId = searchParams.get("accountId");
+    if (searchParams.get("view") === "create") setView("create");
+    if (accountId) setWorkflowForm((current) => current.clientId === accountId ? current : { ...current, clientId: accountId });
+  }, [searchParams]);
   const active = items.filter((x) => x.observedState === "active").length,
     requested = items.filter((x) => x.desiredState === "active").length,
     approvals = items.filter((x) => x.approvalRequired).length,
@@ -205,6 +212,8 @@ export default function Automations() {
       setWorkflowForm(blankWorkflow);
       setView("library");
       setMessage(`${created.name}: blueprint and paused installation created`);
+      const returnTo = searchParams.get("returnTo");
+      if (returnTo?.startsWith("/clients/")) window.location.assign(returnTo);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to create workflow");
     } finally {
@@ -212,19 +221,7 @@ export default function Automations() {
     }
   }
   return (
-    <main className="automation-page">
-      <header className="detail-top">
-        <Link href="/" className="detail-brand">
-          <img src="/cipher-bearagon.png" alt="Cipher, the Bearagon bear" />
-          <span>
-            <b>BEARAGON</b>
-            <small>AUTOMATION CONTROL</small>
-          </span>
-        </Link>
-        <Link href="/" className="back-link">
-          ← Back to dashboard
-        </Link>
-      </header>
+    <AppShell><main className="automation-page">
       <section className="automation-hero">
         <div>
           <small>CONTROL CENTER</small>
@@ -483,6 +480,6 @@ export default function Automations() {
           </section>
         </div>
       )}
-    </main>
+    </main></AppShell>
   );
 }

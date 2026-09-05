@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AppShell } from "@/components/app-shell";
 
 type Profile={tone:string;greeting:string;afterHours:string;emailStyle:string;disclose:boolean;payments:boolean;promises:boolean;sensitive:boolean;recording:boolean;urgentContact:string;businessHours:string};
 const defaults:Profile={tone:"Calm and professional",greeting:"Thank you for calling Bearagon. I’m Cipher, Bearagon’s AI assistant. I can help understand what you need and make sure your message reaches the right person.",afterHours:"Our team is currently unavailable, but I can collect your message and mark anything urgent for review.",emailStyle:"Friendly, concise, and professional",disclose:true,payments:false,promises:false,sensitive:false,recording:false,urgentContact:"Derek Manchego",businessHours:"Monday–Friday · 8:00 AM–5:00 PM"};
@@ -13,8 +14,7 @@ export default function CipherControlCenter(){
  useEffect(()=>{try{const value=localStorage.getItem("cipher-operating-profile");if(value)setProfile({...defaults,...JSON.parse(value)})}catch{}},[]);
  function update<K extends keyof Profile>(key:K,value:Profile[K]){setProfile({...profile,[key]:value});setSaved("")}
  function save(){try{localStorage.setItem("cipher-operating-profile",JSON.stringify(profile))}catch{}setSaved("Operating profile saved")}
- return <main className="cipher-page">
-  <header className="detail-top"><a href="/" className="detail-brand"><img src="/cipher-bearagon.png" alt="Cipher, the Bearagon bear"/><span><b>BEARAGON</b><small>CIPHER CONTROL CENTER</small></span></a><a href="/" className="back-link">← Back to dashboard</a></header>
+ return <AppShell><main className="cipher-page">
   <section className="cipher-hero"><div className="cipher-identity"><img src="/cipher-bearagon.png" alt="Cipher, Bearagon’s AI assistant"/><div><small>AI ASSISTANT PROFILE</small><h1>Cipher</h1><p>Bearagon’s secure front door for calls, messages, email, and client coordination.</p></div></div><div className="cipher-status"><i></i><span><b>Configuration mode</b><small>No live phone line connected</small></span></div></section>
   <div className="cipher-content">
    <section className="cipher-summary"><article><small>IDENTITY</small><strong>Clearly AI</strong><span>Disclosure required</span></article><article><small>PHONE MODE</small><strong>Message first</strong><span>Human escalation enabled</span></article><article><small>EMAIL MODE</small><strong>Draft only</strong><span>Human presses Send</span></article><article><small>HIGH-RISK ACTIONS</small><strong>Blocked</strong><span>No money or promises</span></article></section>
@@ -31,6 +31,6 @@ export default function CipherControlCenter(){
    </section>
    <section className="cipher-safety-note"><img src="/cipher-bearagon.png" alt="" aria-hidden="true"/><div><small>CIPHER’S OPERATING PROMISE</small><h2>Helpful within limits. Human when it matters.</h2><p>Every client can review and approve their own version before activation.</p></div><a href="/communications">Open Calls & Messages →</a></section>
   </div>
- </main>
+ </main></AppShell>
 }
 function Rule({label,note,checked,change}:{label:string;note:string;checked:boolean;change:(v:boolean)=>void}){return <label><span><b>{label}</b><small>{note}</small></span><Switch checked={checked} onCheckedChange={change}/></label>}

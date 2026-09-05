@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { AppShell } from "@/components/app-shell";
 type Client = {
   id: string;
   companyName: string;
@@ -23,7 +24,7 @@ type ClientDetailPayload = { error?:string; client?:Client; tasks?:Task[]; workf
 type AutomationPayload = { error?:string; workflow?:Workflow };
 type WorkspacePayload = { error?:string; workspace?:Workspace };
 const stages = ["Intake", "Connections", "Building", "Testing", "Live"];
-const workspaceTabs = ["Overview", "Workflows", "Activity"] as const;
+const workspaceTabs = ["Overview", "Onboarding", "Automations", "Activity"] as const;
 type WorkspaceTab = (typeof workspaceTabs)[number];
 function observationLabel(value: string) {
   if (!value) return "not reconciled";
@@ -34,7 +35,8 @@ function observationLabel(value: string) {
 }
 export default function ClientDetail() {
   const params = useParams<{ id: string }>(),
-    id = params.id;
+    id = params.id,
+    searchParams = useSearchParams();
   const [client, setClient] = useState<Client | null>(null),
     [tasks, setTasks] = useState<Task[]>([]),
     [loading, setLoading] = useState(true),
@@ -63,6 +65,12 @@ export default function ClientDetail() {
       .catch((e) => setMessage(e.message))
       .finally(() => setLoading(false));
   }, [id]);
+  useEffect(() => {
+    const requested = searchParams.get("tab");
+    if (requested && workspaceTabs.includes(requested as WorkspaceTab)) {
+      setTab(requested as WorkspaceTab);
+    }
+  }, [searchParams]);
   useEffect(() => {
     fetch(`/api/platform/status?accountId=${encodeURIComponent(id)}`)
       .then((response) => response.json() as Promise<PlatformStatus>)
@@ -203,28 +211,17 @@ export default function ClientDetail() {
     [client],
   );
   if (loading)
-    return <div className="detail-loading">Loading client workspace…</div>;
+    return <AppShell><div className="detail-loading">Loading account workspace…</div></AppShell>;
   if (!client)
     return (
-      <div className="detail-loading">
+      <AppShell><div className="detail-loading">
         {message || "Client not found."}
-        <Link href="/">Return to dashboard</Link>
-      </div>
+        <Link href="/">Return to accounts</Link>
+      </div></AppShell>
     );
   return (
-    <main className="detail-page">
-      <header className="detail-top">
-        <Link href="/" className="detail-brand">
-          <img src="/cipher-bearagon.png" alt="Cipher, the Bearagon bear" />
-          <span>
-            <b>BEARAGON</b>
-            <small>BEARAGON OPS</small>
-          </span>
-        </Link>
-        <Link href="/" className="back-link">
-          ← Back to dashboard
-        </Link>
-      </header>
+    <AppShell><main className="detail-page">
+      <div className="record-breadcrumb"><Link href="/">Accounts</Link><span>/</span><span>{client.companyName}</span></div>
       <section className="detail-hero">
         <div className="client-avatar">{initials}</div>
         <div>
@@ -384,19 +381,23 @@ export default function ClientDetail() {
           </article>
         </aside>
       </div>}
-      {tab === "Workflows" && <section className="client-section">
+      {tab === "Onboarding" && <section className="client-section client-onboarding-section">
+        <div className="client-section-heading"><div><small>DELIVERY PLAN</small><h2>{client.companyName} onboarding</h2><p>Use the checklist as the source of truth for readiness. Update stage and next action as work changes.</p></div><span>{tasks.length ? `${complete}/${tasks.length} complete` : "Not started"}</span></div>
+        {client.stage === "Not started" ? <article className="client-control-card"><h3>Delivery has not started</h3><p>This relationship is recorded without an onboarding engagement. Start onboarding when implementation is ready.</p><button className="safe-client-action" onClick={startOnboarding} disabled={saving}>{saving ? "Starting…" : "Start onboarding"}</button></article> : <div className="detail-content client-onboarding-grid"><section className="detail-main"><article className="detail-card progress-card"><div className="card-title"><div><small>CHECKLIST PROGRESS</small><h2>{percent}% complete</h2></div><strong>{complete}/{tasks.length}</strong></div><div className="big-progress"><i style={{ width: percent + "%" }} /></div><p>{percent === 100 ? "This account is ready to launch." : "Finish the required setup before moving this account toward launch."}</p></article><article className="detail-card"><div className="card-title"><div><small>REQUIRED WORK</small><h2>Onboarding checklist</h2></div></div><div className="checklist">{tasks.map((task) => <label className={task.completed ? "check-item checked" : "check-item"} key={task.id}><input type="checkbox" checked={task.completed} onChange={() => toggle(task)} /><i>✓</i><span>{task.title}</span><b>{task.completed ? "Complete" : "Pending"}</b></label>)}</div></article></section><aside className="detail-side"><article className="detail-card"><small>CURRENT STAGE</small><select value={client.stage} onChange={(event) => setClient({ ...client, stage: event.target.value })}>{stages.map((item) => <option key={item}>{item}</option>)}</select><small>NEXT ACTION</small><input value={client.nextStep} onChange={(event) => setClient({ ...client, nextStep: event.target.value })} placeholder="What should happen next?"/><small>TARGET DATE</small><p>{client.dueDate || "Not set"}</p><button className="safe-client-action" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save delivery plan"}</button></article></aside></div>}
+      </section>}
+      {tab === "Automations" && <section className="client-section">
         <div className="client-section-heading"><div><small>ACCOUNT-SPECIFIC AUTOMATIONS</small><h2>{client.companyName} installations</h2><p>Ops records the blueprint, delivery stage, and desired state. Harness and Console telemetry own what is actually running.</p></div><div><span>{workflows.filter((workflow) => workflow.observedState === "active").length} observed active</span>{workflows.length > 0 && <button className={pauseRequested ? "safe-client-action" : "danger-client-action"} disabled={pauseRequested} onClick={pauseClient}>{pauseRequested ? "All pause requests recorded" : "Request account pause"}</button>}</div></div>
         {workflows.length ? <div className="client-control-grid">{workflows.map((workflow) => <article className="client-control-card" key={workflow.id}>
           <div className="control-card-top"><i>⚡</i><span><h3>{workflow.name}</h3><small>{workflow.deliveryStage.replaceAll("_", " ")} · {workflow.approvalRequired ? "Approval required" : workflow.safetyLevel}</small></span><button disabled className={workflow.observedState === "active" ? "control-toggle on" : "control-toggle"} aria-label={`Observed projection for ${workflow.name}`}>Projection: {workflow.observedState}</button></div>
           {workflow.description && <p className="client-workflow-description">{workflow.description}</p>}
           <div className="client-flow"><span><small>TRIGGER</small><b>{workflow.trigger}</b></span><em>→</em><span><small>ACTION</small><b>{workflow.action}</b></span></div>
           <div className="client-workflow-footer"><span><small>DESIRED / TELEMETRY</small><b>{workflow.desiredState} · {workflow.lastRunStatus} · {observationLabel(workflow.lastObservedAt)}</b></span><button className="safe-client-action" onClick={() => toggleWorkflow(workflow)} disabled={workflow.desiredState === "retired"}>{workflow.desiredState === "retired" ? "Retired" : workflow.desiredState === "active" ? "Request pause" : "Request activation"}</button><button className="safe-client-action" onClick={() => testClientWorkflow(workflow)} disabled={!workflow.linked}>Test through harness</button></div>
-        </article>)}</div> : <div className="client-workflow-empty"><img src="/cipher-bearagon.png" alt="" aria-hidden="true"/><div><h3>No automation installations for this account yet.</h3><p>Use the Automation Blueprint form to create a paused, account-scoped installation.</p><a href="/automations">＋ Create automation</a></div></div>}<p className="client-control-message">{message}</p>
+        </article>)}</div> : <div className="client-workflow-empty"><img src="/cipher-bearagon.png" alt="" aria-hidden="true"/><div><h3>No automation installations for this account yet.</h3><p>Create a paused, account-scoped blueprint, then link it to the delivery harness.</p><Link href={`/automations?view=create&accountId=${encodeURIComponent(id)}&returnTo=${encodeURIComponent(`/clients/${id}?tab=automations`)}`}>Create automation</Link></div></div>}<p className="client-control-message">{message}</p>
       </section>}
       {tab === "Activity" && <section className="client-section">
         <div className="client-section-heading"><div><small>OPERATOR AUDIT TRAIL</small><h2>{client.companyName} activity</h2><p>Configuration intent and authenticated human decisions are recorded separately from runtime telemetry.</p></div><span>Account record</span></div>
         {activity.length ? <article className="client-control-card client-timeline">{activity.map((event) => <div key={event.id}><i/><span><b>{event.action.replaceAll("_", " ").replaceAll(".", " · ")}</b><small>{event.actorName} · {event.result} · {new Date(event.createdAt).toLocaleString()}</small>{event.detail && <small>{event.detail}</small>}</span></div>)}</article> : <article className="client-control-card"><p>No operator activity has been recorded for this account.</p></article>}
       </section>}
-    </main>
+    </main></AppShell>
   );
 }

@@ -1,5 +1,9 @@
 "use client";
+
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ArrowUpRight, Search } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -7,11 +11,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { AppShell } from "@/components/app-shell";
+
 type Client = {
   id: string;
   companyName: string;
@@ -26,21 +31,9 @@ type Client = {
   openTasks: number;
   createdAt: string;
 };
-const stages = [
-  "All clients",
-  "Intake",
-  "Connections",
-  "Building",
-  "Testing",
-  "Live",
-];
-const progress: Record<string, number> = {
-  Intake: 18,
-  Connections: 42,
-  Building: 68,
-  Testing: 86,
-  Live: 100,
-};
+
+const stages = ["All clients", "Intake", "Connections", "Building", "Testing", "Live"];
+const deliveryStages = stages.slice(1);
 const blank = {
   companyName: "",
   contactName: "",
@@ -51,422 +44,158 @@ const blank = {
   dueDate: "",
   startOnboarding: false,
 };
-export default function Home() {
-  const [clients, setClients] = useState<Client[]>([]),
-    [stage, setStage] = useState("All clients"),
-    [query, setQuery] = useState(""),
-    [open, setOpen] = useState(false),
-    [form, setForm] = useState(blank),
-    [loading, setLoading] = useState(true),
-    [saving, setSaving] = useState(false),
-    [error, setError] = useState("");
+
+function initials(value: string) {
+  return value.split(" ").filter(Boolean).map((word) => word[0]).join("").slice(0, 3);
+}
+
+export default function AccountsPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedStage = searchParams.get("stage") || "All clients";
+  const stage = stages.includes(requestedStage) ? requestedStage : "All clients";
+  const query = searchParams.get("q") || "";
+  const [clients, setClients] = useState<Client[]>([]);
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState(blank);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  function setFilter(key: "stage" | "q", value: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (!value || (key === "stage" && value === "All clients")) params.delete(key);
+    else params.set(key, value);
+    const suffix = params.toString();
+    router.replace(suffix ? `/?${suffix}` : "/", { scroll: false });
+  }
+
+  useEffect(() => {
+    if (searchParams.get("newAccount") !== "1") return;
+    setOpen(true);
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("newAccount");
+    const suffix = params.toString();
+    router.replace(suffix ? `/?${suffix}` : "/", { scroll: false });
+  }, [router, searchParams]);
+
   useEffect(() => {
     fetch("/api/clients")
-      .then(async (r) => {
-        const d = await r.json() as { clients?: Client[]; error?: string };
-        if (!r.ok) throw new Error(d.error);
-        setClients(d.clients || []);
+      .then(async (response) => {
+        const data = await response.json() as { clients?: Client[]; error?: string };
+        if (!response.ok) throw new Error(data.error);
+        setClients(data.clients || []);
       })
       .catch(() => setError("Client records are temporarily unavailable."))
       .finally(() => setLoading(false));
   }, []);
-  async function addClient(e: FormEvent) {
-    e.preventDefault();
+
+  async function addClient(event: FormEvent) {
+    event.preventDefault();
     setSaving(true);
     setError("");
     try {
-      const r = await fetch("/api/clients", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(form),
-        }),
-        d = await r.json() as { client?: Client; error?: string };
-      if (!r.ok) throw new Error(d.error);
-      if (!d.client) throw new Error("The saved account was not returned.");
-      setClients((c) => [d.client as Client, ...c]);
+      const response = await fetch("/api/clients", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const data = await response.json() as { client?: Client; error?: string };
+      if (!response.ok) throw new Error(data.error);
+      if (!data.client) throw new Error("The saved account was not returned.");
+      setClients((current) => [data.client as Client, ...current]);
       setForm(blank);
       setOpen(false);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Unable to add client.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Unable to add account.");
     } finally {
       setSaving(false);
     }
   }
-  const visible = useMemo(
-      () =>
-        clients.filter(
-          (c) =>
-            (stage === "All clients" || c.stage === stage) &&
-            [c.companyName, c.contactName, c.email].some((value) =>
-              value.toLowerCase().includes(query.toLowerCase()),
-            ),
-        ),
-      [clients, stage, query],
-    ),
-    active = clients.filter((c) =>
-      ["Intake", "Connections", "Building", "Testing"].includes(c.stage),
-    ).length,
-    openTasks = clients.reduce((sum, client) => sum + client.openTasks, 0),
-    onboardingQueue = clients
-      .filter((client) => client.openTasks > 0)
-      .sort((left, right) => right.openTasks - left.openTasks)
-      .slice(0, 5);
+
+  const visible = useMemo(() => clients.filter((client) => (
+    (stage === "All clients" || client.stage === stage)
+    && [client.companyName, client.contactName, client.email].some((value) => value.toLowerCase().includes(query.toLowerCase()))
+  )), [clients, stage, query]);
+  const active = clients.filter((client) => deliveryStages.includes(client.stage)).length;
+  const openTasks = clients.reduce((sum, client) => sum + client.openTasks, 0);
+  const onboardingQueue = clients
+    .filter((client) => client.openTasks > 0)
+    .sort((left, right) => right.openTasks - left.openTasks)
+    .slice(0, 5);
+
   return (
-    <main className="shell">
-      <aside>
-        <div className="brand">
-          <img src="/cipher-bearagon.png" alt="Cipher, the Bearagon bear" />
-          <span>BEARAGON</span>
-        </div>
-        <nav>
-          <a className="active" href="#overview">
-            ◫ <span>Overview</span>
-          </a>
-          <details className="side-dropdown">
-            <summary>
-              <i>◎</i><span>Accounts & contacts</span><b>{clients.length}</b><em>⌄</em>
-            </summary>
-            <div className="side-dropdown-menu">
-              {clients.length ? clients.map((client) => (
-                <a href={`/clients/${client.id}`} key={client.id}>
-                  <i>{client.companyName.split(" ").map((word) => word[0]).join("").slice(0, 2)}</i>
-                  <span>{client.companyName}<small>{client.stage}</small></span>
-                </a>
-              )) : <button onClick={() => setOpen(true)}>＋ Add first account</button>}
-              {clients.length > 0 && <a className="dropdown-view-all" href="#clients">View relationship pipeline →</a>}
-            </div>
-          </details>
-          <details className="side-dropdown">
-            <summary>
-              <i>✓</i><span>Onboarding tasks</span><b>{openTasks}</b><em>⌄</em>
-            </summary>
-            <div className="side-dropdown-menu task-dropdown">
-              {clients.filter((client) => client.openTasks > 0).map((client) => (
-                <a href={`/clients/${client.id}`} key={client.id}>
-                  <i>✓</i><span>{client.companyName}<small>{client.openTasks} open checklist items</small></span>
-                </a>
-              ))}
-              {!openTasks && <span>All onboarding checklists are complete.</span>}
-            </div>
-          </details>
-          <details className="side-dropdown"><summary><i>◉</i><span>Approvals</span><em>⌄</em></summary><div className="side-dropdown-menu"><a href="/approvals"><i>◉</i><span>Review queue<small>Approve or reject requests</small></span></a><a href="/approvals"><i>✓</i><span>Decision history<small>Client-scoped audit trail</small></span></a></div></details>
-          <details className="side-dropdown"><summary><i>⚡</i><span>Automations</span><em>⌄</em></summary><div className="side-dropdown-menu"><a href="/automations"><i>⚡</i><span>Control Center<small>Manage all workflows</small></span></a><a href="/automations#workflow-library"><i>◎</i><span>Workflow library<small>Review and safe test</small></span></a><a href="/automations#safety"><i>✓</i><span>Safety rules<small>Approvals and limits</small></span></a></div></details>
-        </nav>
-        <div className="cipher-card">
-          <img src="/cipher-bearagon.png" alt="" aria-hidden="true" />
-          <span>
-            <small>CIPHER</small>
-            <b>Secure. Automate. Elevate.</b>
-          </span>
-        </div>
-        <div className="sidefoot">
-          <small>ONBOARDING HEALTH</small>
-          <p>
-            <i /> Active clients <b>{active}</b>
-          </p>
-          <p>
-            <i className="risk" /> Open tasks <b>{openTasks}</b>
-          </p>
-          <div className="user">
-            <i>BO</i>
-            <span>
-              <b>Bearagon operator</b>
-              <small>Authenticated access</small>
-            </span>
-          </div>
-        </div>
-      </aside>
-      <section className="workspace" id="overview">
-        <header className="ops-header">
+    <AppShell>
+      <section className="workspace ops-accounts-page" id="accounts">
+        <header className="ops-header ops-accounts-header">
           <div className="ops-header-copy">
-            <small>BEARAGON OPS</small>
-            <h1>Your consulting operations command center.</h1>
+            <small>ACCOUNT DIRECTORY</small>
+            <h1>Accounts</h1>
+            <p>Keep the client relationship, delivery status, and next action in one operating record.</p>
           </div>
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <button className="ops-header-action">＋ Add account</button>
-            </DialogTrigger>
-            <DialogContent className="crm-dialog">
-              <form onSubmit={addClient}>
-                <DialogHeader>
-                  <DialogTitle>Add an account and primary contact</DialogTitle>
-                  <DialogDescription>
-                    Keep the business relationship, person, and onboarding
-                    engagement as separate records from day one.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="form-grid">
-                  <label>
-                    Company name
-                    <Input
-                      required
-                      value={form.companyName}
-                      onChange={(e) =>
-                        setForm({ ...form, companyName: e.target.value })
-                      }
-                    />
-                  </label>
-                  <label>
-                    Primary contact
-                    <Input
-                      required
-                      value={form.contactName}
-                      onChange={(e) =>
-                        setForm({ ...form, contactName: e.target.value })
-                      }
-                    />
-                  </label>
-                  <label>
-                    Email
-                    <Input
-                      required
-                      type="email"
-                      value={form.email}
-                      onChange={(e) =>
-                        setForm({ ...form, email: e.target.value })
-                      }
-                    />
-                  </label>
-                  <label>
-                    Phone
-                    <Input
-                      value={form.phone}
-                      onChange={(e) =>
-                        setForm({ ...form, phone: e.target.value })
-                      }
-                    />
-                  </label>
-                  <label>
-                    Relationship
-                    <select
-                      value={form.relationshipType}
-                      onChange={(e) =>
-                        setForm({ ...form, relationshipType: e.target.value })
-                      }
-                    >
-                      <option value="prospect">Prospect</option>
-                      <option value="client">Client</option>
-                      <option value="partner">Partner</option>
-                      <option value="vendor">Vendor</option>
-                      <option value="other">Other</option>
-                    </select>
-                  </label>
-                  <div className="form-choice">
-                    <Checkbox
-                      id="start-onboarding"
-                      checked={form.startOnboarding}
-                      onCheckedChange={(checked) =>
-                        setForm({
-                          ...form,
-                          startOnboarding: checked === true,
-                          ...(checked === true
-                            ? { relationshipType: "client" }
-                            : {}),
-                        })
-                      }
-                    />
-                    <label htmlFor="start-onboarding">
-                      <b>Start onboarding now</b>
-                      <small>Create the engagement and standard checklist. Leave this off for leads, partners, and contacts who are not ready for delivery.</small>
-                    </label>
-                  </div>
-                  {form.startOnboarding && <>
-                    <label>
-                      Starting stage
-                      <select
-                        value={form.stage}
-                        onChange={(e) =>
-                          setForm({ ...form, stage: e.target.value })
-                        }
-                      >
-                        {stages.slice(1).map((s) => (
-                          <option key={s}>{s}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <label>
-                      Target date
-                      <Input
-                        type="date"
-                        value={form.dueDate}
-                        onChange={(e) =>
-                          setForm({ ...form, dueDate: e.target.value })
-                        }
-                      />
-                    </label>
-                  </>}
-                </div>
-                {error && <p className="form-error">{error}</p>}
-                <DialogFooter>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setOpen(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={saving}>
-                    {saving ? "Saving…" : "Create account"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
+          <button className="ops-header-action" type="button" onClick={() => setOpen(true)}>Add account</button>
         </header>
-        <div className="content">
-          <section className="alert ready">
-            <i>✓</i>
-            <div>
-              <small>DELIVERY WORKSPACE</small>
-              <h2>Start with the client relationship</h2>
-              <p>
-                Record the account and primary contact first. Provision an
-                operational workspace only when delivery begins.
-              </p>
+
+        <div className="content ops-account-content">
+          <section className="panel account-directory" aria-labelledby="accounts-heading">
+            <div className="panelhead account-directory-head">
+              <div><small>RELATIONSHIPS</small><h2 id="accounts-heading">All accounts</h2></div>
+              <label className="account-search"><Search aria-hidden="true" /><input value={query} onChange={(event) => setFilter("q", event.target.value)} placeholder="Search accounts or contacts" aria-label="Search accounts or contacts" /></label>
             </div>
-            <button onClick={() => setOpen(true)}>Add first account →</button>
-          </section>
-          <section className="metrics">
-            <article>
-              <small>ACTIVE ONBOARDINGS</small>
-              <strong>{active}</strong>
-              <span>Across your pipeline</span>
-            </article>
-            <article>
-              <small>TOTAL ACCOUNTS</small>
-              <strong>{clients.length}</strong>
-              <span>With normalized contacts</span>
-            </article>
-            <article>
-              <small>TASKS TO SET UP</small>
-              <strong>{openTasks}</strong>
-              <span>Across active onboarding checklists</span>
-            </article>
-            <article>
-              <small>WORKSPACES LINKED</small>
-              <strong className="status">{clients.filter((client) => client.workspaceStatus === "active").length}</strong>
-              <span className="good">Console tenants stay explicit</span>
-            </article>
-          </section>
-          <section className="panel" id="clients">
-            <div className="panelhead">
-              <div>
-                <small>RELATIONSHIP PIPELINE</small>
-                <h2>Accounts, contacts, and onboarding</h2>
-              </div>
-              <label>
-                ⌕{" "}
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search accounts or contacts"
-                />
-              </label>
+            <div className="account-filter-row" aria-label="Filter accounts by delivery stage">
+              <span>Delivery stage</span>
+              <div className="tabs">{stages.map((item) => <button key={item} className={stage === item ? "selected" : ""} onClick={() => setFilter("stage", item)}>{item}</button>)}</div>
+              <span className="account-count">{loading ? "" : `${visible.length} shown`}</span>
             </div>
-            <div className="tabs">
-              {stages.map((s) => (
-                <button
-                  key={s}
-                  className={stage === s ? "selected" : ""}
-                  onClick={() => setStage(s)}
-                >
-                  {s}
-                </button>
+            <div className="rows account-rows">
+              <div className="row labels"><span>ACCOUNT & PRIMARY CONTACT</span><span>RELATIONSHIP</span><span>DELIVERY STATUS</span><span>NEXT ACTION</span><span>TARGET</span></div>
+              {loading && <p className="empty">Loading accounts…</p>}
+              {!loading && visible.map((client) => (
+                <Link className="row client" href={`/clients/${client.id}`} key={client.id}>
+                  <span className="name"><i>{initials(client.companyName)}</i><span><b>{client.companyName}</b><small>{client.contactName} · {client.email}</small></span></span>
+                  <span className="relationship-cell">{client.relationshipType}</span>
+                  <span><em className={`pill ${client.stage.toLowerCase()}`}>{client.stage}</em></span>
+                  <span className="next-action-cell">{client.nextStep || "Set next action"}</span>
+                  <span className="target-cell">{client.dueDate || "Not set"}<ArrowUpRight aria-hidden="true" /></span>
+                </Link>
               ))}
-            </div>
-            <div className="rows">
-              <div className="row labels">
-                <span>ACCOUNT & CONTACT</span>
-                <span>STAGE</span>
-                <span>PROGRESS</span>
-                <span>NEXT STEP</span>
-                <span>TARGET</span>
-              </div>
-              {loading ? (
-                <p className="empty">Loading client records…</p>
-              ) : (
-                visible.map((c) => (
-                  <a className="row client" href={`/clients/${c.id}`} key={c.id}>
-                    <span className="name">
-                      <i>
-                        {c.companyName
-                          .split(" ")
-                          .map((x) => x[0])
-                          .join("")
-                          .slice(0, 3)}
-                      </i>
-                      <span>
-                        <b>{c.companyName}</b>
-                        <small>{c.contactName} · {c.relationshipType}</small>
-                      </span>
-                    </span>
-                    <span>
-                      <em className={"pill " + c.stage.toLowerCase()}>
-                        {c.stage}
-                      </em>
-                    </span>
-                    <span className="progress">
-                      <i>
-                        <b style={{ width: (progress[c.stage] || 10) + "%" }} />
-                      </i>
-                      <small>{progress[c.stage] || 10}%</small>
-                    </span>
-                    <span>{c.nextStep}</span>
-                    <span>
-                      {c.dueDate || "Not set"} <b>›</b>
-                    </span>
-                  </a>
-                ))
-              )}
-              {!loading && !visible.length && (
-                <div className="empty">
-                  <b>
-                    {clients.length
-                      ? "No accounts match this view."
-                      : "No accounts yet."}
-                  </b>
-                  <span>
-                    {clients.length
-                      ? "Try another stage or search."
-                      : "Add your first account and contact to begin."}
-                  </span>
-                  <button onClick={() => setOpen(true)}>＋ Add account</button>
-                </div>
-              )}
+              {!loading && !visible.length && <div className="empty account-empty"><b>{clients.length ? "No accounts match this view." : "Add your first account."}</b><span>{clients.length ? "Try a different delivery stage or search term." : "Create the relationship first; start onboarding only when delivery is ready."}</span><button type="button" onClick={() => setOpen(true)}>Add account</button></div>}
             </div>
           </section>
-          <section className="panel tasks" id="tasks">
-            <div className="panelhead">
-              <div>
-                <small>ONBOARDING QUEUE</small>
-                <h2>Open work by account</h2>
-              </div>
-            </div>
-            {onboardingQueue.map((client) => (
-              <a
-                className="task queue"
-                href={`/clients/${client.id}`}
-                key={client.id}
-              >
-                <i aria-hidden="true">{client.openTasks}</i>
-                <span>
-                  <b>{client.companyName}</b>
-                  <small>
-                    {client.openTasks} open checklist {client.openTasks === 1 ? "item" : "items"} · {client.nextStep}
-                  </small>
-                </span>
-                <b>›</b>
-              </a>
-            ))}
-            {!loading && !onboardingQueue.length && (
-              <div className="empty">
-                <b>{clients.length ? "Onboarding is caught up." : "No onboarding work yet."}</b>
-                <span>{clients.length ? "All current checklist items are complete." : "Add an account to create its onboarding checklist."}</span>
-              </div>
-            )}
-          </section>
+
+          <div className="ops-account-lower-grid">
+            <section className="panel tasks" id="onboarding" aria-labelledby="onboarding-heading">
+              <div className="panelhead"><div><small>DELIVERY QUEUE</small><h2 id="onboarding-heading">Onboarding work</h2></div><Link href="/automations" className="subtle-link">View automations <ArrowUpRight aria-hidden="true" /></Link></div>
+              {onboardingQueue.map((client) => <Link className="task queue" href={`/clients/${client.id}?tab=onboarding`} key={client.id}><i aria-hidden="true">{client.openTasks}</i><span><b>{client.companyName}</b><small>{client.openTasks} open checklist {client.openTasks === 1 ? "item" : "items"} · {client.nextStep || "Review account"}</small></span><ArrowUpRight aria-hidden="true" /></Link>)}
+              {!loading && !onboardingQueue.length && <div className="empty compact-empty"><b>{clients.length ? "No open onboarding work." : "No onboarding work yet."}</b><span>{clients.length ? "Active checklist items appear here." : "Create an account when a relationship is ready."}</span></div>}
+            </section>
+            <section className="metrics ops-metrics" aria-label="Account operating summary">
+              <article><small>ACTIVE DELIVERY</small><strong>{active}</strong><span>Accounts in progress</span></article>
+              <article><small>OPEN TASKS</small><strong>{openTasks}</strong><span>Across checklists</span></article>
+              <article><small>WORKSPACES</small><strong className="status">{clients.filter((client) => client.workspaceStatus === "active").length}</strong><span>Linked to Console</span></article>
+            </section>
+          </div>
         </div>
       </section>
-    </main>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="crm-dialog">
+          <form onSubmit={addClient}>
+            <DialogHeader><DialogTitle>Add an account</DialogTitle><DialogDescription>Record the business relationship and primary contact. Create delivery work only when the account is ready for onboarding.</DialogDescription></DialogHeader>
+            <div className="form-grid">
+              <label>Company name<Input required value={form.companyName} onChange={(event) => setForm({ ...form, companyName: event.target.value })} /></label>
+              <label>Primary contact<Input required value={form.contactName} onChange={(event) => setForm({ ...form, contactName: event.target.value })} /></label>
+              <label>Email<Input required type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>
+              <label>Phone<Input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></label>
+              <label>Relationship<select value={form.relationshipType} onChange={(event) => setForm({ ...form, relationshipType: event.target.value })}><option value="prospect">Prospect</option><option value="client">Client</option><option value="partner">Partner</option><option value="vendor">Vendor</option><option value="other">Other</option></select></label>
+              <div className="form-choice"><Checkbox id="start-onboarding" checked={form.startOnboarding} onCheckedChange={(checked) => setForm({ ...form, startOnboarding: checked === true, ...(checked === true ? { relationshipType: "client" } : {}) })} /><label htmlFor="start-onboarding"><b>Start onboarding now</b><small>Create the delivery engagement and standard checklist. Leave this off for a lead, partner, or relationship that is not ready for delivery.</small></label></div>
+              {form.startOnboarding && <><label>Starting stage<select value={form.stage} onChange={(event) => setForm({ ...form, stage: event.target.value })}>{deliveryStages.map((item) => <option key={item}>{item}</option>)}</select></label><label>Target date<Input type="date" value={form.dueDate} onChange={(event) => setForm({ ...form, dueDate: event.target.value })} /></label></>}
+            </div>
+            {error && <p className="form-error">{error}</p>}
+            <DialogFooter><Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button type="submit" disabled={saving}>{saving ? "Saving…" : "Create account"}</Button></DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </AppShell>
   );
 }

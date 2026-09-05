@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AppShell } from "@/components/app-shell";
 
 type Service = { name: string; icon: string; description: string; defaultState: string; trigger: string; action: string; draftOnly?: boolean; draftProduct?: string; permissionName?: string };
 const services: Service[] = [
@@ -49,11 +50,7 @@ export default function Connections() {
     setSelected(null);
   }
 
-  return <main className="connections-page">
-    <header className="detail-top">
-      <a href="/" className="detail-brand"><img src="/cipher-bearagon.png" alt="Cipher, the Bearagon bear"/><span><b>BEARAGON</b><small>CONNECTIONS</small></span></a>
-      <a href="/" className="back-link">← Back to dashboard</a>
-    </header>
+  return <AppShell><main className="connections-page">
     <section className="connections-hero">
       <div><small>SECURE CONNECTIONS</small><h1>Connected services</h1><p>Open any service and walk through its complete guarded setup.</p></div>
       <a href="/automations">View automations →</a>
@@ -98,5 +95,5 @@ export default function Connections() {
         </>}
       </DialogContent>
     </Dialog>
-  </main>;
+  </main></AppShell>;
 }

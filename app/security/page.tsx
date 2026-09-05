@@ -6,6 +6,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
   AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { AppShell } from "@/components/app-shell";
 
 const auditEvents = [
   { time: "Today, 9:42 AM", event: "Gmail draft-only policy selected", actor: "Derek Manchego", result: "Approved" },
@@ -17,16 +18,12 @@ const auditEvents = [
 export default function SecurityCenter() {
   const [paused, setPaused] = useState(false);
   const [gmailConnected, setGmailConnected] = useState(true);
-  return <main className="security-page">
-    <header className="detail-top">
-      <a href="/" className="detail-brand"><img src="/cipher-bearagon.png" alt="Cipher, the Bearagon bear"/><span><b>BEARAGON</b><small>SECURITY CENTER</small></span></a>
-      <a href="/" className="back-link">← Back to dashboard</a>
-    </header>
+  return <AppShell><main className="security-page">
     <section className="security-hero">
       <div><small>SECURITY & PERMISSIONS</small><h1>Every action stays inside its guardrails.</h1><p>Review access, approval rules, and activity from one place.</p></div>
-      <button className={paused ? "resume-all" : "pause-all"} onClick={() => setPaused(!paused)}>{paused ? "Resume guarded workflows" : "Emergency pause"}</button>
+      <button className={paused ? "resume-all" : "pause-all"} onClick={() => setPaused(!paused)}>{paused ? "Clear demo pause" : "Preview pause control"}</button>
     </section>
-    {paused && <div className="security-paused"><b>All workflows are paused.</b><span>No automated action can run until an administrator resumes them.</span></div>}
+    {paused && <div className="security-paused"><b>Demo pause state enabled.</b><span>This page has not sent a runtime pause command. Use the Automation workspace to record a pause request and wait for harness acknowledgement.</span></div>}
     <div className="security-content">
       <section className="security-metrics">
         <article><small>SECURITY POSTURE</small><strong>Protected</strong><span>Owner-only access</span></article>
@@ -55,7 +52,7 @@ export default function SecurityCenter() {
           <div className="protection-item"><i>01</i><span><b>Minimum access</b><small>Every app receives only the scopes its workflow requires.</small></span></div>
           <div className="protection-item"><i>02</i><span><b>Human approval</b><small>High-impact actions stop until an authorized person approves.</small></span></div>
           <div className="protection-item"><i>03</i><span><b>Activity history</b><small>Tests, approvals, and configuration changes are recorded.</small></span></div>
-          <div className="protection-item"><i>04</i><span><b>Immediate control</b><small>Administrators can pause workflows and disconnect apps.</small></span></div>
+          <div className="protection-item"><i>04</i><span><b>Controlled intervention</b><small>Pause requests and connection changes are recorded separately from runtime acknowledgement.</small></span></div>
         </aside>
       </section>
       <section className="security-card microsoft-panel">
@@ -77,5 +74,5 @@ export default function SecurityCenter() {
       </section>
       <section className="security-note"><img src="/cipher-bearagon.png" alt="" aria-hidden="true"/><div><small>CIPHER’S SECURITY RULE</small><h2>Permission before automation.</h2><p>Connections remain limited, observable, and reversible throughout the client relationship.</p></div></section>
     </div>
-  </main>;
+  </main></AppShell>;
 }
