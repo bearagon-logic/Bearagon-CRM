@@ -132,6 +132,11 @@ export default function AccountsPage() {
           <button className="ops-header-action" type="button" onClick={() => setOpen(true)}>Add account</button>
         </header>
 
+        <nav className="account-section-nav" aria-label="Account workspace">
+          <Link href="/" className="active">Directory</Link>
+          <Link href="/accounts/onboarding">Delivery queue</Link>
+        </nav>
+
         <div className="content ops-account-content">
           <section className="panel account-directory" aria-labelledby="accounts-heading">
             <div className="panelhead account-directory-head">

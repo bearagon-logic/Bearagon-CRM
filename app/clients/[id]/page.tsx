@@ -26,6 +26,12 @@ type WorkspacePayload = { error?:string; workspace?:Workspace };
 const stages = ["Intake", "Connections", "Building", "Testing", "Live"];
 const workspaceTabs = ["Overview", "Onboarding", "Automations", "Activity"] as const;
 type WorkspaceTab = (typeof workspaceTabs)[number];
+const workspaceTabLabels: Record<WorkspaceTab, string> = {
+  Overview: "Overview",
+  Onboarding: "Onboarding plan",
+  Automations: "Automations",
+  Activity: "Activity",
+};
 function observationLabel(value: string) {
   if (!value) return "not reconciled";
   const observed = new Date(value);
@@ -66,10 +72,9 @@ export default function ClientDetail() {
       .finally(() => setLoading(false));
   }, [id]);
   useEffect(() => {
-    const requested = searchParams.get("tab");
-    if (requested && workspaceTabs.includes(requested as WorkspaceTab)) {
-      setTab(requested as WorkspaceTab);
-    }
+    const requested = searchParams.get("tab")?.trim().toLowerCase();
+    const selected = workspaceTabs.find((item) => item.toLowerCase() === requested);
+    if (selected) setTab(selected);
   }, [searchParams]);
   useEffect(() => {
     fetch(`/api/platform/status?accountId=${encodeURIComponent(id)}`)
@@ -242,7 +247,7 @@ export default function ClientDetail() {
         </div>
       </section>
       <nav className="client-workspace-tabs" aria-label={`${client.companyName} workspace sections`}>
-        {workspaceTabs.map((item) => <button key={item} className={tab === item ? "active" : ""} onClick={() => { setTab(item); setMessage(""); }}>{item}</button>)}
+        {workspaceTabs.map((item) => <button key={item} className={tab === item ? "active" : ""} onClick={() => { setTab(item); setMessage(""); }}>{workspaceTabLabels[item]}</button>)}
       </nav>
       {tab === "Overview" && <div className="detail-content">
         <section className="detail-main">
