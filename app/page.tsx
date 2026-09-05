@@ -119,10 +119,6 @@ export default function AccountsPage() {
   )), [clients, stage, query]);
   const active = clients.filter((client) => deliveryStages.includes(client.stage)).length;
   const openTasks = clients.reduce((sum, client) => sum + client.openTasks, 0);
-  const onboardingQueue = clients
-    .filter((client) => client.openTasks > 0)
-    .sort((left, right) => right.openTasks - left.openTasks)
-    .slice(0, 5);
 
   return (
     <AppShell>
@@ -142,9 +138,8 @@ export default function AccountsPage() {
               <div><small>RELATIONSHIPS</small><h2 id="accounts-heading">All accounts</h2></div>
               <label className="account-search"><Search aria-hidden="true" /><input value={query} onChange={(event) => setFilter("q", event.target.value)} placeholder="Search accounts or contacts" aria-label="Search accounts or contacts" /></label>
             </div>
-            <div className="account-filter-row" aria-label="Filter accounts by delivery stage">
-              <span>Delivery stage</span>
-              <div className="tabs">{stages.map((item) => <button key={item} className={stage === item ? "selected" : ""} onClick={() => setFilter("stage", item)}>{item}</button>)}</div>
+            <div className="account-filter-row">
+              <label className="stage-filter"><span>Filter by delivery stage</span><select value={stage} onChange={(event) => setFilter("stage", event.target.value)} aria-label="Filter accounts by delivery stage">{stages.map((item) => <option key={item}>{item}</option>)}</select></label>
               <span className="account-count">{loading ? "" : `${visible.length} shown`}</span>
             </div>
             <div className="rows account-rows">
@@ -164,12 +159,7 @@ export default function AccountsPage() {
           </section>
 
           <div className="ops-account-lower-grid">
-            <section className="panel tasks" id="onboarding" aria-labelledby="onboarding-heading">
-              <div className="panelhead"><div><small>DELIVERY QUEUE</small><h2 id="onboarding-heading">Onboarding work</h2></div><Link href="/automations" className="subtle-link">View automations <ArrowUpRight aria-hidden="true" /></Link></div>
-              {onboardingQueue.map((client) => <Link className="task queue" href={`/clients/${client.id}?tab=onboarding`} key={client.id}><i aria-hidden="true">{client.openTasks}</i><span><b>{client.companyName}</b><small>{client.openTasks} open checklist {client.openTasks === 1 ? "item" : "items"} · {client.nextStep || "Review account"}</small></span><ArrowUpRight aria-hidden="true" /></Link>)}
-              {!loading && !onboardingQueue.length && <div className="empty compact-empty"><b>{clients.length ? "No open onboarding work." : "No onboarding work yet."}</b><span>{clients.length ? "Active checklist items appear here." : "Create an account when a relationship is ready."}</span></div>}
-            </section>
-            <section className="metrics ops-metrics" aria-label="Account operating summary">
+            <section className="metrics ops-metrics account-summary-metrics" aria-label="Account operating summary">
               <article><small>ACTIVE DELIVERY</small><strong>{active}</strong><span>Accounts in progress</span></article>
               <article><small>OPEN TASKS</small><strong>{openTasks}</strong><span>Across checklists</span></article>
               <article><small>WORKSPACES</small><strong className="status">{clients.filter((client) => client.workspaceStatus === "active").length}</strong><span>Linked to Console</span></article>

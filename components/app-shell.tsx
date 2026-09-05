@@ -27,7 +27,7 @@ type NavItem = {
 
 const workspaceItems: NavItem[] = [
   { href: "/", label: "Accounts", icon: Building2, exact: true },
-  { href: "/#onboarding", label: "Onboarding", icon: CheckSquare },
+  { href: "/onboarding", label: "Onboarding", icon: CheckSquare },
   { href: "/automations", label: "Automations", icon: Zap },
   { href: "/approvals", label: "Approvals", icon: ClipboardCheck },
   { href: "/communications", label: "Inbox", icon: MessageSquare },
@@ -41,7 +41,6 @@ const systemItems: NavItem[] = [
 
 function isCurrent(pathname: string, item: NavItem) {
   if (item.exact) return pathname === "/" || pathname.startsWith("/clients/");
-  if (item.href.includes("#")) return pathname === "/";
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
 
