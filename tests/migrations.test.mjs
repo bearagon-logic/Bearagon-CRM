@@ -14,6 +14,7 @@ const migrationFiles = [
   "0007_mysterious_silver_samurai.sql",
   "0008_uneven_thanos.sql",
   "0009_nappy_black_crow.sql",
+  "0010_past_lord_tyger.sql",
 ];
 
 async function freshDatabase() {

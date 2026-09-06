@@ -173,6 +173,28 @@ export const accountContacts = sqliteTable(
   ],
 );
 
+export const intakeReceipts = sqliteTable("intake_receipts", {
+  id: text("id").primaryKey(),
+  sequence: integer("sequence").notNull().unique(),
+  source: text("source").notNull(),
+  payload: text("payload").notNull(),
+  status: text("status").notNull().default("review"),
+  reason: text("reason").notNull().default(""),
+  inquiryId: text("inquiry_id").references(() => inquiries.id),
+  receivedAt: text("received_at").notNull(),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (t) => [index("idx_intake_receipts_status").on(t.status), check("intake_receipt_status", sql`${t.status} in ('review','imported','dismissed')`)]);
+
+export const intakeFeedState = sqliteTable("intake_feed_state", {
+  id: text("id").primaryKey(),
+  cursor: integer("cursor").notNull().default(0),
+  leaseUntil: integer("lease_until").notNull().default(0),
+  leaseToken: text("lease_token").notNull().default(""),
+  lastSyncedAt: text("last_synced_at").notNull().default(""),
+  lastError: text("last_error").notNull().default(""),
+  health: text("health").notNull().default("{}"),
+});
+
 export const inquiries = sqliteTable("inquiries", {
   id: text("id").primaryKey(),
   requestKey: text("request_key").notNull().unique(),

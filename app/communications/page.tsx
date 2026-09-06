@@ -3,6 +3,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Inbox, Plus, Search, ArrowUpRight } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
+import { IntakeFeeds } from "@/components/intake-feeds";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,6 +21,7 @@ export default function Communications() {
   const [selected, setSelected] = useState<Inquiry | null>(null), [filter, setFilter] = useState("open"), [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true), [saving, setSaving] = useState(false), [error, setError] = useState(""), [notice, setNotice] = useState("");
   const [open, setOpen] = useState(false), [form, setForm] = useState(empty), [requestKey, setRequestKey] = useState("");
+  const [reviewId,setReviewId]=useState(""),[feedRevision,setFeedRevision]=useState(0);
   async function refresh(selectId?: string) {
     const [inbox, directory] = await Promise.all([fetch("/api/inquiries").then(read), fetch("/api/clients").then(read)]);
     const next = inbox.inquiries || [];
@@ -33,7 +35,8 @@ export default function Communications() {
   async function create(event: FormEvent) {
     event.preventDefault(); setSaving(true); setError(""); setNotice("");
     try {
-      const data = await fetch("/api/inquiries", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...form, requestKey }) }).then(read);
+      const data = await fetch(reviewId?"/api/intake/review":"/api/inquiries", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(reviewId?{id:reviewId,action:"import",data:form}:{ ...form, requestKey }) }).then(read);
+      if(reviewId){setReviewId("");setFeedRevision((v)=>v+1);}
       setOpen(false); setForm(empty); setFilter("all"); setQuery("");
       setNotice(data.contactReused ? "Inquiry saved. The existing contact was linked; their details and marketing preference were preserved." : "Inquiry saved. No onboarding or marketing subscription was started.");
       await refresh(data.inquiry?.id);
@@ -49,9 +52,9 @@ export default function Communications() {
     finally { setSaving(false); }
   }
   return <AppShell><main className="ops-intake-page">
-    <header className="ops-intake-header"><div><small>RELATIONSHIPS · INBOX</small><h1>Inquiries</h1><p>From first contact to a clear next step.</p></div><Button onClick={() => { setError(""); setRequestKey(crypto.randomUUID()); setOpen(true); }}><Plus aria-hidden="true" />Record inquiry</Button></header>
+    <header className="ops-intake-header"><div><small>RELATIONSHIPS · INBOX</small><h1>Inquiries</h1><p>From first contact to a clear next step.</p></div><Button onClick={() => { setReviewId(""); setForm(empty); setError(""); setRequestKey(crypto.randomUUID()); setOpen(true); }}><Plus aria-hidden="true" />Record inquiry</Button></header>
     <div className="ops-intake-body">
-      <p className="intake-connection-note"><b>Manual intake is ready.</b> Record website messages, calls, and referrals here. Website and phone-service feeds are not connected yet; this page does not answer calls or send messages.</p>
+      <IntakeFeeds key={feedRevision} onImported={()=>{void refresh().catch((e)=>setError(e.message));}} onReview={(r)=>{setReviewId(r.id);setForm({...empty,...r.event,source:r.event.source==="retell"?"phone":"website"});setError("");setOpen(true);}}/>
       {error && !open && <p role="alert" className="form-error">{error} <button onClick={() => { setError(""); refresh().catch((e) => setError(e.message)); }}>Retry</button></p>}
       {notice && <p role="status" className="intake-notice">{notice}</p>}
       <div className="intake-toolbar"><label className="intake-search"><Search aria-hidden="true"/><Input aria-label="Search inquiries" placeholder="Search company, contact, or message" value={query} onChange={(e) => setQuery(e.target.value)} /></label><label>Show<select value={filter} onChange={(e) => setFilter(e.target.value)}><option value="open">Open inquiries</option><option value="new">New</option><option value="working">Working</option><option value="qualified">Qualified</option><option value="overdue">Overdue follow-up</option><option value="closed">Closed</option><option value="all">All inquiries</option></select></label><span>{visible.length} shown</span></div>

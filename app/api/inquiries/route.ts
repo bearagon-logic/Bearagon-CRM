@@ -15,6 +15,10 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  return recordInquiry(request);
+}
+
+export async function recordInquiry(request: Request, capturedSource?: string) {
   const actor = await getOperatorIdentity(request);
   if (!actor) return operatorRequiredResponse();
   const parsed = inquiryCreateInput.safeParse(await request.json().catch(() => null));
@@ -36,7 +40,7 @@ export async function POST(request: Request) {
   }
   const contactId = existingContact?.id ?? newId("contact"), id = newId("inquiry"), now = new Date().toISOString();
   const [primary] = v.accountId ? await db.select().from(accountContacts).where(and(eq(accountContacts.accountId, accountId), eq(accountContacts.isPrimary, true))) : [];
-  const record = { id, requestKey: v.requestKey, accountId, contactId, source: v.source, summary: v.summary, owner: v.owner, nextAction: v.nextAction, followUpDate: v.followUpDate, recordedBy: actor.email, updatedAt: now };
+  const record = { id, requestKey: v.requestKey, accountId, contactId, source: v.source, summary: v.summary, owner: v.owner, nextAction: v.nextAction, followUpDate: v.followUpDate, recordedBy: capturedSource || actor.email, updatedAt: now };
   try {
     // One D1 batch: failed contact/link creation must never leave a partial inquiry.
     const statements = [
@@ -44,7 +48,7 @@ export async function POST(request: Request) {
       ...(!existingContact ? [db.insert(contacts).values({ id: contactId, displayName: v.contactName, email: v.email, emailNormalized: v.email || null, phone: v.phone, updatedAt: now })] : []),
       db.insert(accountContacts).values({ accountId, contactId, isPrimary: !primary, relationshipRole: "stakeholder" }).onConflictDoNothing(),
       db.insert(inquiries).values(record),
-      db.insert(operatorAuditEvents).values({ id: newId("audit"), accountId, resourceType: "inquiry", resourceId: id, action: "inquiry.recorded", ...auditActor(actor), result: "succeeded", detail: `Manually recorded ${v.source} inquiry; ${v.accountId ? "linked existing" : "created prospect"} account. No marketing permission inferred.` }),
+      db.insert(operatorAuditEvents).values({ id: newId("audit"), accountId, resourceType: "inquiry", resourceId: id, action: "inquiry.recorded", ...auditActor(actor), result: "succeeded", detail: `${capturedSource ? `Imported ${capturedSource}` : `Manually recorded ${v.source} inquiry`}; ${v.accountId ? "linked existing" : "created prospect"} account. No marketing permission inferred.` }),
     ];
     await db.batch(statements as [typeof statements[number], ...typeof statements]);
     return Response.json({ inquiry: record, contactReused: !!existingContact }, { status: 201 });

@@ -21,6 +21,20 @@ const contracts = await vite.ssrLoadModule("/lib/contracts/platform.ts");
 const { serviceInput } = await vite.ssrLoadModule("/lib/service-input.ts");
 const { serviceObservation } = await vite.ssrLoadModule("/lib/service-observation.ts");
 const { inquiryCreateInput, inquiryUpdateInput, relationshipInput } = await vite.ssrLoadModule("/lib/inquiry-input.ts");
+const { automaticMatch, eventRequestKey } = await vite.ssrLoadModule("/lib/intake-feed.ts");
+test("intake identity matching never guesses a company from shared phone or conflicting email",async()=>{
+  const e={companyName:"One",contactName:"A Person",email:"one@example.com"};
+  assert.equal(automaticMatch(e,[],[]).reason,"");
+  assert.ok(automaticMatch({...e,email:""},[],[]).reason);
+  assert.ok(automaticMatch(e,[{id:"one"}],[]).reason);
+  const linked={id:"one",name:"One",organizationKind:"external",status:"active"};
+  assert.equal(automaticMatch(e,[{id:"one"}],[linked]).accountId,"one");
+  assert.ok(automaticMatch(e,[{id:"one"}],[{...linked,name:"Other"}]).reason);
+  assert.ok(automaticMatch(e,[{id:"one"}],[{...linked,organizationKind:"internal"}]).reason);
+  assert.ok(automaticMatch(e,[{id:"one"}],[linked,{...linked,id:"two"}]).reason);
+  assert.equal(await eventRequestKey("website:one"),await eventRequestKey("website:one"));
+  assert.notEqual(await eventRequestKey("website:one"),await eventRequestKey("retell:one"));
+});
 
 test("inquiries require contactability, source and valid follow-up without accepting status injection", () => {
   const inquiry = { requestKey: "00000000-0000-4000-8000-000000000001", companyName: "One", contactName: "Person", email: " PERSON@EXAMPLE.COM ", source: "website", summary: "Needs help", status: "qualified" };
