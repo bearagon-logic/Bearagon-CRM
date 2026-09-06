@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AppShell } from "@/components/app-shell";
+import { AccountNavigation } from "@/components/account-navigation";
 
 type Client = {
   id: string;
@@ -138,10 +139,7 @@ export default function AccountsPage() {
           <button className="ops-header-action" type="button" onClick={() => setOpen(true)}>Add account</button>
         </header>
 
-        <nav className="account-section-nav" aria-label="Account workspace">
-          <Link href="/" className="active">Directory</Link>
-          <Link href="/accounts/onboarding">Delivery queue</Link>
-        </nav>
+        <AccountNavigation current="directory" />
 
         <div className="content ops-account-content">
           <section className="panel account-directory" aria-labelledby="accounts-heading">

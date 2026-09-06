@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Search, TriangleAlert } from "lucide-react";
+import { AccountNavigation } from "@/components/account-navigation";
 
 type Onboarding = {
   id: string;
@@ -65,10 +66,7 @@ export function OnboardingWorkspace() {
       <div><small>ACCOUNT DELIVERY</small><h1>Delivery queue</h1><p>Focus on active client delivery: unfinished work, blockers, and the next accountable action.</p></div>
       <Link href="/?newAccount=1" className="ops-header-action">Add account</Link>
     </header>
-    <nav className="account-section-nav" aria-label="Account workspace">
-      <Link href="/">Directory</Link>
-      <Link href="/accounts/onboarding" className="active">Delivery queue</Link>
-    </nav>
+    <AccountNavigation current="delivery" />
     <div className="ops-onboarding-content">
       <section className="onboarding-metrics" aria-label="Delivery queue summary">
         <article><small>ACTIVE ONBOARDINGS</small><strong>{items.length}</strong><span>In delivery now</span></article>
