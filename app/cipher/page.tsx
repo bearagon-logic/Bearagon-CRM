@@ -12,19 +12,17 @@ export default function CipherPage() {
     <div className="cipher-content cipher-sentinel-content">
       <section className="cipher-sentinel-card">
         <small>CIPHER UPDATES</small>
-        <h2>A growing role across Bearagon</h2>
-        <p>Cipher gives our commitment to helpful, secure automation a recognizable face. Today, he represents Bearagon throughout Ops. Our next opportunities for Cipher include useful tooltips, YouTube explainers, onboarding guidance, and clear reminders at important automation checkpoints.</p>
-        <p>These are directions we’re developing. As each one becomes available, this page will share what’s new and where to find it.</p>
+        <h2>Teacher. Guide. Sentinel.</h2>
+        <p>Cipher makes unfamiliar technology easier to understand and reinforces thoughtful operating habits. His job is to help someone understand, remember, or do something—with a personality that feels like part of the Bearagon team.</p>
+        <p>Today, Cipher is our familiar face throughout Ops. These three roles guide where we bring him next; videos, contextual help, and checkpoint guidance are planned opportunities.</p>
       </section>
-      <section className="cipher-sentinel-grid" aria-label="What Cipher represents and where he can help">
-        <article><small>CIPHER REPRESENTS</small><h3>Operational awareness</h3><p>A consistent marker for the human review and guardrails around Bearagon’s work.</p></article>
-        <article><small>GUIDANCE · PLANNED</small><h3>A helpful nudge</h3><p>Bring Cipher into tooltips and onboarding steps to explain unfamiliar terms, point out the next action, and make it easier to find help. Keep guidance easy to dismiss and available when someone needs it.</p></article>
-        <article><small>EDUCATION · PLANNED</small><h3>Make automation approachable</h3><p>Feature Cipher in YouTube videos, short walkthroughs, and team learning materials that explain how our tools work and how to use them confidently.</p></article>
-        <article><small>SAFEGUARDS · PLANNED</small><h3>A familiar face at key checkpoints</h3><p>Use Cipher to introduce permission reviews, testing reminders, and launch approvals—helping the team understand what is being checked and who makes the decision.</p></article>
-        <article><small>STATUS GUIDANCE · PLANNED</small><h3>Help the team see what matters</h3><p>Pair Cipher with verified automation status and clear explanations of what needs attention, when it was last checked, and what the team can do next.</p></article>
-        <article><small>OUR APPROACH</small><h3>Reassurance backed by evidence</h3><p>Cipher’s presence should make security easier to understand. A reassuring message belongs alongside a real check, a clear result, and a person responsible for the next step.</p></article>
+      <section className="cipher-sentinel-grid" aria-label="Cipher’s three roles">
+        <article><small>TEACHER</small><h3>Make the unfamiliar understandable</h3><p>Explain automation concepts through short YouTube videos, onboarding walkthroughs, and team learning materials. Give people something useful to remember and the confidence to put it into practice.</p></article>
+        <article><small>GUIDE</small><h3>Offer help at the right moment</h3><p>Use optional tooltips and contextual help to explain unfamiliar steps and point out the next action. Keep Cipher’s guidance easy to dismiss and easy to find again when someone needs it.</p></article>
+        <article><small>SENTINEL</small><h3>Make the safeguards understandable</h3><p>Draw attention to permission reviews, testing, launch approvals, and issues needing human review. Pair every status message with a real check, its result, and the person responsible for the next step.</p></article>
       </section>
-      <section className="cipher-sentinel-note"><img src="/cipher-bearagon.png" alt="" aria-hidden="true" /><div><small>SENTINEL PRINCIPLE</small><h2>Clear guidance. Human decisions.</h2><p>Cipher helps us explain the safeguards around our work. Permissions, approvals, and verified system checks remain visible, with our team in control. That’s how a friendly guide earns trust.</p></div></section>
+      <section className="cipher-sentinel-card"><small>WHAT CIPHER REPRESENTS</small><h2>Operational awareness</h2><p>A consistent marker for the human review and guardrails around Bearagon’s work.</p><p>Inside Bearagon, Cipher can have personality and become part of our team culture. With clients, use a lighter touch and let the usefulness of his guidance earn their trust. His presence should help people understand our safeguards; security claims need verified evidence.</p></section>
+      <section className="cipher-sentinel-note"><img src="/cipher-bearagon.png" alt="" aria-hidden="true" /><div><small>HOW CIPHER SHOWS UP</small><h2>Friendly in guidance. Precise about status. Quiet during serious work.</h2><p>Keep appearances purposeful. When money, access, or customer data is involved, use straightforward language and make the facts and controls easy to find. During an incident, give the team room to focus.</p><p>Before adding Cipher anywhere, ask: does he help someone understand, remember, or do something?</p></div></section>
     </div>
   </main></AppShell>;
 }
