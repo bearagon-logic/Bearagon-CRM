@@ -45,7 +45,7 @@ button, input, select, textarea { font-family: Arial, sans-serif; }
 
 .ops-app-main .detail-top { display: none; }
 .ops-app-main .workspace { min-height: 100vh; }
-.ops-app-main .workspace > header.ops-accounts-header { min-height: 150px; padding: 25px clamp(24px, 4vw, 58px); gap: 24px; background-color: #071b34; background-image: linear-gradient(90deg, rgba(4, 20, 39, .96) 0%, rgba(5, 25, 48, .84) 40%, rgba(5, 27, 50, .24) 100%), url('/bearagon-ops-header.webp'); background-position: center; background-size: cover; border-bottom-color: #255679; }
+.ops-app-main .workspace > header.ops-accounts-header, .ops-app-main .ops-onboarding-header { min-height: 150px; padding: 25px clamp(24px, 4vw, 58px); gap: 24px; background-color: #071b34; background-image: linear-gradient(90deg, rgba(4, 20, 39, .96) 0%, rgba(5, 25, 48, .84) 40%, rgba(5, 27, 50, .24) 100%), url('/bearagon-ops-header.webp'); background-position: center; background-size: cover; background-repeat: no-repeat; border-bottom-color: #255679; }
 .ops-app-main .workspace > header.ops-accounts-header::after { display: none; }
 .ops-header-copy { max-width: 670px; }
 .ops-header-copy small, .ops-page-header small, .record-breadcrumb { color: #8bcff3; font-size: 11px; font-weight: 800; letter-spacing: .13em; }
@@ -228,7 +228,7 @@ button, input, select, textarea { font-family: Arial, sans-serif; }
   .ops-sidebar.menu-open .ops-nav-group > small, .ops-sidebar.menu-open .ops-navigation a span { display: block; }
   .ops-sidebar.menu-open .ops-navigation a { justify-content: flex-start; padding: 0 11px; }
   .ops-sidebar.menu-open .ops-nav-chevron { display: block; }
-  .ops-app-main .workspace > header.ops-accounts-header { min-height: 150px; padding: 24px 19px; background-position: 58% center; }
+  .ops-app-main .workspace > header.ops-accounts-header, .ops-app-main .ops-onboarding-header { min-height: 150px; padding: 24px 19px; background-position: 58% center; }
   .account-section-nav { padding-inline: 12px; }
   .ops-header-copy p { font-size: 14px; }
   .ops-header-action { min-width: 106px; }
@@ -272,7 +272,7 @@ button, input, select, textarea { font-family: Arial, sans-serif; }
 @media (max-width: 500px) {
   .ops-header-copy h1 { font-size: 30px; }
   .ops-header-copy p { display: none; }
-  .ops-app-main .workspace > header.ops-accounts-header { min-height: 112px; }
+  .ops-app-main .workspace > header.ops-accounts-header, .ops-app-main .ops-onboarding-header { min-height: 112px; }
   .ops-metrics { grid-template-columns: 1fr !important; }
   .ops-metrics article { min-height: 84px; display: grid; grid-template-columns: 1fr auto; gap: 2px; border-right: 0; border-bottom: 1px solid var(--ops-border); }
   .ops-metrics article:last-child { border-bottom: 0; }
