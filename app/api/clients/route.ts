@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 import { getDb } from "../../../db";
 import {
   accountContacts,
@@ -35,12 +35,7 @@ export async function GET(request: Request) {
         db
           .select()
           .from(engagements)
-          .where(
-            and(
-              eq(engagements.kind, "onboarding"),
-              inArray(engagements.status, activeEngagementStatuses),
-            ),
-          )
+          .where(eq(engagements.kind, "onboarding"))
           .orderBy(desc(engagements.createdAt)),
         db
           .select({
@@ -61,12 +56,15 @@ export async function GET(request: Request) {
           .from(onboardingTasks),
       ]);
 
-    const activeEngagementByAccount = new Map();
+    const latestEngagementByAccount = new Map();
     for (const engagement of engagementRows) {
-      if (!activeEngagementByAccount.has(engagement.accountId)) {
-        activeEngagementByAccount.set(engagement.accountId, engagement);
+      if (!latestEngagementByAccount.has(engagement.accountId)) {
+        latestEngagementByAccount.set(engagement.accountId, engagement);
       }
     }
+    const activeEngagementRows = engagementRows.filter((engagement) =>
+      activeEngagementStatuses.includes(engagement.status),
+    );
     const primaryContactByAccount = new Map(
       contactRows.map((contact) => [contact.accountId, contact]),
     );
@@ -77,7 +75,7 @@ export async function GET(request: Request) {
       }
     }
     const accountByEngagement = new Map(
-      engagementRows.map((engagement) => [engagement.id, engagement.accountId]),
+      activeEngagementRows.map((engagement) => [engagement.id, engagement.accountId]),
     );
     const openTasksByAccount = new Map<string, number>();
     for (const task of taskRows) {
@@ -88,7 +86,7 @@ export async function GET(request: Request) {
     }
 
     const clients = accountRows.map((account) => {
-      const engagement = activeEngagementByAccount.get(account.id);
+      const engagement = latestEngagementByAccount.get(account.id);
       const contact = primaryContactByAccount.get(account.id);
       const workspace = workspaceByAccount.get(account.id);
       return {
@@ -99,6 +97,7 @@ export async function GET(request: Request) {
         phone: contact?.phone ?? "",
         relationshipType: account.relationshipType,
         stage: engagement ? displayLabel(engagement.stage) : "Not started",
+        onboardingStatus: engagement?.status ?? "not_started",
         nextStep: engagement?.nextStep ?? "Start onboarding",
         dueDate: engagement?.targetDate ?? "",
         workspaceStatus: workspace?.lifecycle ?? "not_provisioned",
@@ -181,12 +180,13 @@ export async function POST(request: Request) {
       updatedAt: now,
     });
     const taskStatement = db.insert(onboardingTasks).values(
-      onboardingTemplate.map((task, index) => ({
-        id: newId("task"),
-        engagementId,
-        templateKey: task.key,
-        title: task.title,
-        sortOrder: index + 1,
+          onboardingTemplate.map((task, index) => ({
+            id: newId("task"),
+            engagementId,
+            templateKey: task.key,
+            title: task.title,
+            description: task.description,
+            sortOrder: index + 1,
         updatedAt: now,
       })),
     );
@@ -245,6 +245,7 @@ export async function POST(request: Request) {
           phone: canonicalContact.phone,
           relationshipType,
           stage: value.startOnboarding ? displayLabel(value.stage) : "Not started",
+          onboardingStatus: value.startOnboarding ? "active" : "not_started",
           nextStep: value.startOnboarding
             ? "Complete discovery form"
             : "Start onboarding",

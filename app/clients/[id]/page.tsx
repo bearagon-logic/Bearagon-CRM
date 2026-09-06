@@ -1,8 +1,11 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 type Client = {
   id: string;
   companyName: string;
@@ -14,15 +17,25 @@ type Client = {
   dueDate: string;
   notes: string;
   relationshipType: string;
+  onboardingStatus: string;
 };
-type Task = { id: string; title: string; completed: boolean };
+type Task = {
+  id: string;
+  title: string;
+  description: string;
+  status: "pending" | "in_progress" | "blocked" | "completed" | "skipped";
+  completed: boolean;
+  evidenceRef: string;
+  completionNote: string;
+  blockedReason: string;
+};
 type Workspace = { id:string; lifecycle:string; consoleClientId:string|null; displayName:string };
 type Workflow = { id:string; name:string; description:string; trigger:string; action:string; safetyLevel:string; approvalRequired:boolean; active:boolean; linked:boolean; desiredState:string; observedState:string; deliveryStage:string; runnerKey:string; externalWorkflowId:string; configVersion:string; lastObservedAt:string; lastRunStatus:string; lastRunAt:string; failureCount:number };
 type Activity = { id:string; action:string; actorName:string; result:string; detail:string; createdAt:string };
 type PlatformStatus = { state:string; message?:string; overview?:{automations:unknown[];runs:unknown[];connectors:unknown[];fetchedAt:string} };
 type ClientDetailPayload = { error?:string; client?:Client; tasks?:Task[]; workflows?:Workflow[]; workspace?:Workspace|null; activity?:Activity[] };
 type AutomationPayload = { error?:string; workflow?:Workflow };
-type WorkspacePayload = { error?:string; workspace?:Workspace };
+type WorkspacePayload = { error?:string; workspace?:Workspace; activity?:Activity[] };
 const stages = ["Intake", "Connections", "Building", "Testing", "Live"];
 const workspaceTabs = ["Overview", "Onboarding", "Automations", "Activity"] as const;
 type WorkspaceTab = (typeof workspaceTabs)[number];
@@ -42,6 +55,7 @@ function observationLabel(value: string) {
 export default function ClientDetail() {
   const params = useParams<{ id: string }>(),
     id = params.id,
+    router = useRouter(),
     searchParams = useSearchParams();
   const [client, setClient] = useState<Client | null>(null),
     [tasks, setTasks] = useState<Task[]>([]),
@@ -52,7 +66,9 @@ export default function ClientDetail() {
     [workflows, setWorkflows] = useState<Workflow[]>([]),
     [workspace, setWorkspace] = useState<Workspace | null>(null),
     [platformStatus, setPlatformStatus] = useState<PlatformStatus | null>(null),
-    [activity, setActivity] = useState<Activity[]>([]);
+    [activity, setActivity] = useState<Activity[]>([]),
+    [selectedTask, setSelectedTask] = useState<Task | null>(null),
+    [taskDraft, setTaskDraft] = useState({ status: "pending" as Task["status"], evidenceRef: "", completionNote: "", blockedReason: "" });
   function applyDetail(data: ClientDetailPayload) {
     if (!data.client) throw new Error("Account record was not returned.");
     setClient(data.client);
@@ -85,28 +101,40 @@ export default function ClientDetail() {
   const complete = tasks.filter((t) => t.completed).length,
     percent = tasks.length ? Math.round((complete / tasks.length) * 100) : 0,
     pauseRequested = workflows.length > 0 && workflows.every((workflow) => workflow.desiredState !== "active");
-  async function toggle(task: Task) {
-    const completed = !task.completed;
-    setTasks((v) => v.map((t) => (t.id === task.id ? { ...t, completed } : t)));
+  function selectTab(next: WorkspaceTab) {
+    setTab(next);
+    setMessage("");
+    router.replace(next === "Overview" ? `/clients/${id}` : `/clients/${id}?tab=${next.toLowerCase()}`, { scroll: false });
+  }
+  function editTask(task: Task) {
+    setSelectedTask(task);
+    setTaskDraft({ status: task.status, evidenceRef: task.evidenceRef || "", completionNote: task.completionNote || "", blockedReason: task.blockedReason || "" });
+  }
+  async function saveTask() {
+    if (!selectedTask) return;
+    setSaving(true);
+    setMessage("");
     try {
       const response = await fetch(`/api/clients/${id}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ taskId: task.id, completed }),
+        body: JSON.stringify({ taskId: selectedTask.id, ...taskDraft }),
       });
-      const data = await response.json() as { error?: string; task?: Task };
+      const data = await response.json() as { error?: string; task?: Task; client?: Client; activity?: Activity[] };
       if (!response.ok) throw new Error(data.error || "Task status could not be saved");
       if (data.task) {
         setTasks((current) => current.map((item) =>
-          item.id === task.id ? data.task as Task : item,
+          item.id === selectedTask.id ? data.task as Task : item,
         ));
       }
-      setMessage(completed ? "Checklist item completed" : "Checklist item reopened");
+      if (data.client) setClient(data.client);
+      if (data.activity) setActivity(data.activity);
+      setSelectedTask(null);
+      setMessage("Onboarding requirement updated");
     } catch (error) {
-      setTasks((current) => current.map((item) =>
-        item.id === task.id ? task : item,
-      ));
       setMessage(error instanceof Error ? error.message : "Task status could not be saved");
+    } finally {
+      setSaving(false);
     }
   }
   async function save() {
@@ -121,6 +149,7 @@ export default function ClientDetail() {
           ...(client.stage === "Not started" ? {} : { stage: client.stage }),
           notes: client.notes,
           ...(client.stage === "Not started" ? {} : { nextStep: client.nextStep }),
+          ...(client.stage === "Not started" ? {} : { targetDate: client.dueDate }),
         }),
       });
       const data = await response.json() as ClientDetailPayload;
@@ -145,6 +174,7 @@ export default function ClientDetail() {
       const data = await response.json() as ClientDetailPayload;
       if (!response.ok) throw new Error(data.error || "Onboarding could not be started");
       applyDetail(data);
+      selectTab("Onboarding");
       setMessage("Onboarding started · checklist created");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Onboarding could not be started");
@@ -201,9 +231,29 @@ export default function ClientDetail() {
       if (!response.ok) throw new Error(data.error || "Workspace request could not be saved");
       if (!data.workspace) throw new Error("The requested workspace was not returned");
       setWorkspace(data.workspace);
+      if (data.activity) setActivity(data.activity);
       setMessage("Workspace requested · Console provisioning remains a separate step");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Workspace request could not be saved");
+    }
+  }
+  async function completeOnboarding() {
+    setSaving(true);
+    setMessage("");
+    try {
+      const response = await fetch(`/api/clients/${id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ completeOnboarding: true }),
+      });
+      const data = await response.json() as ClientDetailPayload;
+      if (!response.ok) throw new Error(data.error || "Onboarding could not be completed");
+      applyDetail(data);
+      setMessage("Onboarding completed and removed from the active delivery queue");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Onboarding could not be completed");
+    } finally {
+      setSaving(false);
     }
   }
   const initials = useMemo(
@@ -247,7 +297,7 @@ export default function ClientDetail() {
         </div>
       </section>
       <nav className="client-workspace-tabs" aria-label={`${client.companyName} workspace sections`}>
-        {workspaceTabs.map((item) => <button key={item} className={tab === item ? "active" : ""} onClick={() => { setTab(item); setMessage(""); }}>{workspaceTabLabels[item]}</button>)}
+        {workspaceTabs.map((item) => <button key={item} className={tab === item ? "active" : ""} onClick={() => selectTab(item)}>{workspaceTabLabels[item]}</button>)}
       </nav>
       {tab === "Overview" && <div className="detail-content">
         <section className="detail-main">
@@ -283,29 +333,12 @@ export default function ClientDetail() {
           <article className="detail-card">
             <div className="card-title">
               <div>
-                <small>LAUNCH CHECKLIST</small>
-                <h2>Required onboarding steps</h2>
+                <small>DELIVERY WORK</small>
+                <h2>Manage onboarding in one place</h2>
               </div>
             </div>
-            <div className="checklist">
-              {tasks.map((task) => (
-                <label
-                  className={
-                    task.completed ? "check-item checked" : "check-item"
-                  }
-                  key={task.id}
-                >
-                  <input
-                    type="checkbox"
-                    checked={task.completed}
-                    onChange={() => toggle(task)}
-                  />
-                  <i>✓</i>
-                  <span>{task.title}</span>
-                  <b>{task.completed ? "Complete" : "Pending"}</b>
-                </label>
-              ))}
-            </div>
+            <p>Requirements, evidence, exceptions, and completion all live in the onboarding plan. This overview stays focused on the account’s current operating picture.</p>
+            <button className="safe-client-action" onClick={() => selectTab("Onboarding")}>Open onboarding plan</button>
           </article>
           </>}
           <article className="detail-card">
@@ -352,7 +385,7 @@ export default function ClientDetail() {
               }
             />
             <small>TARGET DATE</small>
-            <p>{client.dueDate || "Not set"}</p>
+            <Input type="date" value={client.dueDate} onChange={(e) => setClient({ ...client, dueDate: e.target.value })} />
             </>}
           </article>
           <article className="detail-card connections-card">
@@ -388,7 +421,7 @@ export default function ClientDetail() {
       </div>}
       {tab === "Onboarding" && <section className="client-section client-onboarding-section">
         <div className="client-section-heading"><div><small>DELIVERY PLAN</small><h2>{client.companyName} onboarding</h2><p>Use the checklist as the source of truth for readiness. Update stage and next action as work changes.</p></div><span>{tasks.length ? `${complete}/${tasks.length} complete` : "Not started"}</span></div>
-        {client.stage === "Not started" ? <article className="client-control-card"><h3>Delivery has not started</h3><p>This relationship is recorded without an onboarding engagement. Start onboarding when implementation is ready.</p><button className="safe-client-action" onClick={startOnboarding} disabled={saving}>{saving ? "Starting…" : "Start onboarding"}</button></article> : <div className="detail-content client-onboarding-grid"><section className="detail-main"><article className="detail-card progress-card"><div className="card-title"><div><small>CHECKLIST PROGRESS</small><h2>{percent}% complete</h2></div><strong>{complete}/{tasks.length}</strong></div><div className="big-progress"><i style={{ width: percent + "%" }} /></div><p>{percent === 100 ? "This account is ready to launch." : "Finish the required setup before moving this account toward launch."}</p></article><article className="detail-card"><div className="card-title"><div><small>REQUIRED WORK</small><h2>Onboarding checklist</h2></div></div><div className="checklist">{tasks.map((task) => <label className={task.completed ? "check-item checked" : "check-item"} key={task.id}><input type="checkbox" checked={task.completed} onChange={() => toggle(task)} /><i>✓</i><span>{task.title}</span><b>{task.completed ? "Complete" : "Pending"}</b></label>)}</div></article></section><aside className="detail-side"><article className="detail-card"><small>CURRENT STAGE</small><select value={client.stage} onChange={(event) => setClient({ ...client, stage: event.target.value })}>{stages.map((item) => <option key={item}>{item}</option>)}</select><small>NEXT ACTION</small><input value={client.nextStep} onChange={(event) => setClient({ ...client, nextStep: event.target.value })} placeholder="What should happen next?"/><small>TARGET DATE</small><p>{client.dueDate || "Not set"}</p><button className="safe-client-action" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save delivery plan"}</button></article></aside></div>}
+        {client.stage === "Not started" ? <article className="client-control-card"><h3>Delivery has not started</h3><p>This relationship is recorded without an onboarding engagement. Start onboarding when implementation is ready.</p><button className="safe-client-action" onClick={startOnboarding} disabled={saving}>{saving ? "Starting…" : "Start onboarding"}</button></article> : <div className="detail-content client-onboarding-grid"><section className="detail-main"><article className="detail-card progress-card"><div className="card-title"><div><small>CHECKLIST PROGRESS</small><h2>{percent}% complete</h2></div><strong>{complete}/{tasks.length}</strong></div><div className="big-progress"><i style={{ width: percent + "%" }} /></div><p>{client.onboardingStatus === "completed" ? "This onboarding is complete and no longer appears in the active delivery queue." : percent === 100 ? "All requirements are in a terminal state. Move to Live, then complete onboarding." : "Open each requirement to document evidence, exceptions, or blockers."}</p></article><article className="detail-card"><div className="card-title"><div><small>REQUIRED WORK</small><h2>Onboarding requirements</h2></div></div><div className="task-plan-list">{tasks.map((task) => <button type="button" className={`task-plan-row ${task.status}`} key={task.id} onClick={() => editTask(task)} disabled={client.onboardingStatus === "completed"}><span><b>{task.title}</b><small>{task.description || "Document the requirement before marking it complete."}</small>{task.evidenceRef && <small>Evidence: {task.evidenceRef}</small>}{task.blockedReason && <small>Blocked: {task.blockedReason}</small>}</span><em>{task.status.replaceAll("_", " ")}</em></button>)}</div></article></section><aside className="detail-side"><article className="detail-card"><small>CURRENT STAGE</small><select value={client.stage} onChange={(event) => setClient({ ...client, stage: event.target.value })} disabled={client.onboardingStatus === "completed"}>{stages.map((item) => <option key={item}>{item}</option>)}</select><small>NEXT ACTION</small><input value={client.nextStep} onChange={(event) => setClient({ ...client, nextStep: event.target.value })} placeholder="What should happen next?" disabled={client.onboardingStatus === "completed"}/><small>TARGET DATE</small><Input type="date" value={client.dueDate} onChange={(event) => setClient({ ...client, dueDate: event.target.value })} disabled={client.onboardingStatus === "completed"}/><button className="safe-client-action" onClick={save} disabled={saving || client.onboardingStatus === "completed"}>{saving ? "Saving…" : "Save delivery plan"}</button>{client.onboardingStatus === "completed" ? <p>Onboarding completed.</p> : <button className="safe-client-action" onClick={completeOnboarding} disabled={saving || client.stage !== "Live" || tasks.some((task) => !["completed", "skipped"].includes(task.status))}>Complete onboarding</button>}<p className="client-control-message">{message}</p></article></aside></div>}
       </section>}
       {tab === "Automations" && <section className="client-section">
         <div className="client-section-heading"><div><small>ACCOUNT-SPECIFIC AUTOMATIONS</small><h2>{client.companyName} installations</h2><p>Ops records the blueprint, delivery stage, and desired state. Harness and Console telemetry own what is actually running.</p></div><div><span>{workflows.filter((workflow) => workflow.observedState === "active").length} observed active</span>{workflows.length > 0 && <button className={pauseRequested ? "safe-client-action" : "danger-client-action"} disabled={pauseRequested} onClick={pauseClient}>{pauseRequested ? "All pause requests recorded" : "Request account pause"}</button>}</div></div>
@@ -403,6 +436,26 @@ export default function ClientDetail() {
         <div className="client-section-heading"><div><small>OPERATOR AUDIT TRAIL</small><h2>{client.companyName} activity</h2><p>Configuration intent and authenticated human decisions are recorded separately from runtime telemetry.</p></div><span>Account record</span></div>
         {activity.length ? <article className="client-control-card client-timeline">{activity.map((event) => <div key={event.id}><i/><span><b>{event.action.replaceAll("_", " ").replaceAll(".", " · ")}</b><small>{event.actorName} · {event.result} · {new Date(event.createdAt).toLocaleString()}</small>{event.detail && <small>{event.detail}</small>}</span></div>)}</article> : <article className="client-control-card"><p>No operator activity has been recorded for this account.</p></article>}
       </section>}
+      <Dialog open={Boolean(selectedTask)} onOpenChange={(open) => !open && setSelectedTask(null)}>
+        <DialogContent className="crm-dialog task-dialog">
+          {selectedTask && <form onSubmit={(event) => { event.preventDefault(); void saveTask(); }}>
+            <DialogHeader>
+              <DialogTitle>{selectedTask.title}</DialogTitle>
+              <DialogDescription>{selectedTask.description || "Document the work before changing its status."}</DialogDescription>
+            </DialogHeader>
+            <div className="form-grid">
+              <label>Status<select value={taskDraft.status} onChange={(event) => setTaskDraft({ ...taskDraft, status: event.target.value as Task["status"] })}><option value="pending">Pending</option><option value="in_progress">In progress</option><option value="blocked">Blocked</option><option value="completed">Completed</option><option value="skipped">Skipped / approved exception</option></select></label>
+              <label>Evidence reference<Input value={taskDraft.evidenceRef} onChange={(event) => setTaskDraft({ ...taskDraft, evidenceRef: event.target.value })} placeholder="URL, document ID, or verified system reference" /></label>
+              <label>Completion note / approved exception<Textarea value={taskDraft.completionNote} onChange={(event) => setTaskDraft({ ...taskDraft, completionNote: event.target.value })} placeholder="What was verified, or who approved the exception?" /></label>
+              <label>Blocker reason<Textarea value={taskDraft.blockedReason} onChange={(event) => setTaskDraft({ ...taskDraft, blockedReason: event.target.value })} placeholder="What is blocked and what would unblock it?" /></label>
+              {taskDraft.status === "completed" && <p className="form-hint">A completion note or evidence reference is required. Prerequisite requirements must be complete first.</p>}
+              {taskDraft.status === "blocked" && <p className="form-hint">A blocker reason is required.</p>}
+              {taskDraft.status === "skipped" && <p className="form-hint">Document the approved exception in the completion note.</p>}
+            </div>
+            <DialogFooter><button type="button" onClick={() => setSelectedTask(null)}>Cancel</button><button type="submit" disabled={saving}>{saving ? "Saving…" : "Save requirement"}</button></DialogFooter>
+          </form>}
+        </DialogContent>
+      </Dialog>
     </main></AppShell>
   );
 }

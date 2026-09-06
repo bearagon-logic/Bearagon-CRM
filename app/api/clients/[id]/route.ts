@@ -18,7 +18,13 @@ import {
   ONBOARDING_STAGES,
   slugify,
 } from "../../../../lib/ops-domain.mjs";
-import { onboardingTemplate } from "../../../../lib/server/onboarding-template";
+import {
+  isTerminalTaskStatus,
+  onboardingTaskStatuses,
+  onboardingTemplate,
+  requirementsForStage,
+  taskTemplate,
+} from "../../../../lib/server/onboarding-template";
 import {
   auditActor,
   getOperatorIdentity,
@@ -65,7 +71,6 @@ async function loadAccountDetail(id: string) {
           and(
             eq(engagements.accountId, id),
             eq(engagements.kind, "onboarding"),
-            inArray(engagements.status, activeEngagementStatuses),
           ),
         )
         .orderBy(desc(engagements.createdAt)),
@@ -129,6 +134,7 @@ async function loadAccountDetail(id: string) {
       phone: primaryContact?.phone ?? "",
       relationshipType: account.relationshipType,
       stage: engagement ? displayLabel(engagement.stage) : "Not started",
+      onboardingStatus: engagement?.status ?? "not_started",
       nextStep: engagement?.nextStep ?? "Start onboarding",
       dueDate: engagement?.targetDate ?? "",
       notes: account.notes,
@@ -247,6 +253,7 @@ export async function PATCH(
             engagementId,
             templateKey: task.key,
             title: task.title,
+            description: task.description,
             sortOrder: index + 1,
             updatedAt: now,
           })),
@@ -305,7 +312,8 @@ export async function PATCH(
           detail: "Requested an operational workspace; no Console tenant was provisioned",
         }),
       ]);
-      return Response.json({ workspace });
+      const detail = await loadAccountDetail(id);
+      return Response.json({ workspace, activity: detail?.activity ?? [] });
     }
 
     if (body.pauseWorkflows === true) {
@@ -334,16 +342,28 @@ export async function PATCH(
     }
 
     if (typeof body.taskId === "string") {
-      if (typeof body.completed !== "boolean") {
-        return Response.json(
-          { error: "Task completion must be true or false." },
-          { status: 400 },
-        );
+      const requestedStatus =
+        typeof body.status === "string"
+          ? body.status
+          : body.completed === true
+            ? "completed"
+            : body.completed === false
+              ? "pending"
+              : null;
+      if (!requestedStatus || !onboardingTaskStatuses.includes(requestedStatus as never)) {
+        return Response.json({ error: "Choose a valid task status." }, { status: 400 });
       }
       const [task] = await db
         .select({
           id: onboardingTasks.id,
           engagementId: onboardingTasks.engagementId,
+          templateKey: onboardingTasks.templateKey,
+          title: onboardingTasks.title,
+          evidenceRef: onboardingTasks.evidenceRef,
+          completionNote: onboardingTasks.completionNote,
+          blockedReason: onboardingTasks.blockedReason,
+          engagementStatus: engagements.status,
+          engagementNextStep: engagements.nextStep,
         })
         .from(onboardingTasks)
         .innerJoin(
@@ -361,25 +381,91 @@ export async function PATCH(
       if (!task) {
         return Response.json({ error: "Task not found." }, { status: 404 });
       }
-      const completed = body.completed;
+      if (!activeEngagementStatuses.includes(task.engagementStatus)) {
+        return Response.json(
+          { error: "This onboarding is closed and its tasks can no longer be changed." },
+          { status: 409 },
+        );
+      }
+      const evidenceRef =
+        typeof body.evidenceRef === "string"
+          ? body.evidenceRef.trim().slice(0, 1000)
+          : task.evidenceRef;
+      const completionNote =
+        typeof body.completionNote === "string"
+          ? body.completionNote.trim().slice(0, 3000)
+          : task.completionNote;
+      const blockedReason =
+        typeof body.blockedReason === "string"
+          ? body.blockedReason.trim().slice(0, 3000)
+          : task.blockedReason;
+      if (requestedStatus === "completed" && !evidenceRef && !completionNote) {
+        return Response.json(
+          { error: "Add a completion note or evidence reference before completing this task." },
+          { status: 400 },
+        );
+      }
+      if (requestedStatus === "blocked" && !blockedReason) {
+        return Response.json(
+          { error: "Explain what is blocking this task before saving it as blocked." },
+          { status: 400 },
+        );
+      }
+      if (requestedStatus === "skipped" && !completionNote) {
+        return Response.json(
+          { error: "Document the approved exception before skipping this task." },
+          { status: 400 },
+        );
+      }
+
+      const allTasks = await db
+        .select()
+        .from(onboardingTasks)
+        .where(eq(onboardingTasks.engagementId, task.engagementId));
+      const template = taskTemplate(task.templateKey);
+      const statusByKey = new Map(allTasks.map((item) => [item.templateKey, item.status]));
+      const unmetDependencies = (template?.dependsOn ?? []).filter(
+        (key) => !isTerminalTaskStatus(statusByKey.get(key) ?? "pending"),
+      );
+      if (requestedStatus === "completed" && unmetDependencies.length > 0) {
+        const names = unmetDependencies.map((key) => taskTemplate(key)?.title ?? key);
+        return Response.json(
+          { error: `Complete ${names.join(" and ")} before completing this task.` },
+          { status: 409 },
+        );
+      }
+      const plannedTasks = allTasks.map((item) =>
+        item.id === task.id ? { ...item, status: requestedStatus } : item,
+      );
+      const nextOpenTask = plannedTasks.find(
+        (item) => !isTerminalTaskStatus(item.status),
+      );
+      const nextStep = nextOpenTask?.title ?? "Review onboarding readiness";
       await db.batch([
         db
           .update(onboardingTasks)
           .set({
-            status: completed ? "completed" : "pending",
-            completedAt: completed ? now : "",
+            status: requestedStatus,
+            evidenceRef,
+            completionNote,
+            blockedReason,
+            completedAt: requestedStatus === "completed" ? now : "",
             updatedAt: now,
           })
           .where(eq(onboardingTasks.id, task.id)),
+        db
+          .update(engagements)
+          .set({ nextStep, updatedAt: now })
+          .where(eq(engagements.id, task.engagementId)),
         db.insert(operatorAuditEvents).values({
           id: newId("audit"),
           accountId: id,
           resourceType: "onboarding_task",
           resourceId: task.id,
-          action: completed ? "onboarding_task.completed" : "onboarding_task.reopened",
+          action: `onboarding_task.${requestedStatus}`,
           ...auditActor(actor),
           result: "succeeded",
-          detail: "Onboarding checklist status changed",
+          detail: `${task.title}: ${requestedStatus}${evidenceRef ? `; evidence ${evidenceRef}` : ""}`,
         }),
       ]);
       const [updatedTask] = await db
@@ -387,8 +473,11 @@ export async function PATCH(
         .from(onboardingTasks)
         .where(eq(onboardingTasks.id, task.id))
         .limit(1);
+      const detail = await loadAccountDetail(id);
       return Response.json({
         task: { ...updatedTask, completed: updatedTask.status === "completed" },
+        client: detail?.client,
+        activity: detail?.activity ?? [],
       });
     }
 
@@ -409,7 +498,12 @@ export async function PATCH(
         ? body.notes.trim().slice(0, 5000)
         : account.notes;
     if (!engagement) {
-      if (typeof body.stage === "string" || typeof body.nextStep === "string") {
+      if (
+        typeof body.stage === "string" ||
+        typeof body.nextStep === "string" ||
+        typeof body.targetDate === "string" ||
+        body.completeOnboarding === true
+      ) {
         return Response.json(
           { error: "Start onboarding before changing its stage or next step." },
           { status: 409 },
@@ -440,6 +534,52 @@ export async function PATCH(
       const detail = await loadAccountDetail(id);
       return Response.json({ client: detail?.client });
     }
+
+    if (body.completeOnboarding === true) {
+      const taskRows = await db
+        .select()
+        .from(onboardingTasks)
+        .where(eq(onboardingTasks.engagementId, engagement.id));
+      const incomplete = taskRows.filter(
+        (task) => !isTerminalTaskStatus(task.status),
+      );
+      if (incomplete.length > 0) {
+        return Response.json(
+          { error: "Resolve every onboarding requirement before completing onboarding." },
+          { status: 409 },
+        );
+      }
+      if (engagement.stage !== "live") {
+        return Response.json(
+          { error: "Move the account to Live before completing onboarding." },
+          { status: 409 },
+        );
+      }
+      await db.batch([
+        db
+          .update(engagements)
+          .set({
+            status: "completed",
+            completedAt: now,
+            nextStep: "Onboarding completed",
+            updatedAt: now,
+          })
+          .where(eq(engagements.id, engagement.id)),
+        db.insert(operatorAuditEvents).values({
+          id: newId("audit"),
+          accountId: id,
+          resourceType: "engagement",
+          resourceId: engagement.id,
+          action: "onboarding.completed",
+          ...auditActor(actor),
+          result: "succeeded",
+          detail: "Completed onboarding after all requirements reached a terminal state",
+        }),
+      ]);
+      const detail = await loadAccountDetail(id);
+      return Response.json(detail, { headers: { "cache-control": "no-store" } });
+    }
+
     const stage =
       typeof body.stage === "string"
         ? normalizeEnum(body.stage, ONBOARDING_STAGES, engagement.stage)
@@ -450,10 +590,38 @@ export async function PATCH(
         { status: 400 },
       );
     }
+    const requiredTasks = requirementsForStage(stage);
+    if (requiredTasks.length > 0) {
+      const taskRows = await db
+        .select({ templateKey: onboardingTasks.templateKey, status: onboardingTasks.status })
+        .from(onboardingTasks)
+        .where(eq(onboardingTasks.engagementId, engagement.id));
+      const statusByKey = new Map(taskRows.map((task) => [task.templateKey, task.status]));
+      const missing = requiredTasks.filter(
+        (key) => !isTerminalTaskStatus(statusByKey.get(key) ?? "pending"),
+      );
+      if (missing.length > 0) {
+        return Response.json(
+          {
+            error: `Resolve ${missing
+              .map((key) => taskTemplate(key)?.title ?? key)
+              .join(" and ")} before moving this account to ${displayLabel(stage)}.`,
+          },
+          { status: 409 },
+        );
+      }
+    }
     const nextStep =
       typeof body.nextStep === "string"
         ? body.nextStep.trim().slice(0, 300)
         : engagement.nextStep;
+    const targetDate =
+      typeof body.targetDate === "string"
+        ? body.targetDate.trim().slice(0, 10)
+        : engagement.targetDate;
+    if (targetDate && !/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
+      return Response.json({ error: "Target date must use YYYY-MM-DD." }, { status: 400 });
+    }
 
     await db.batch([
       db
@@ -462,7 +630,7 @@ export async function PATCH(
         .where(eq(accounts.id, id)),
       db
         .update(engagements)
-        .set({ stage, nextStep, updatedAt: now })
+        .set({ stage, nextStep, targetDate, updatedAt: now })
         .where(eq(engagements.id, engagement.id)),
       db.insert(operatorAuditEvents).values({
         id: newId("audit"),
@@ -472,7 +640,7 @@ export async function PATCH(
         action: "engagement.updated",
         ...auditActor(actor),
         result: "succeeded",
-        detail: `Stage ${stage}; next step ${nextStep || "not set"}`,
+        detail: `Stage ${stage}; next step ${nextStep || "not set"}; target ${targetDate || "not set"}`,
       }),
     ]);
 

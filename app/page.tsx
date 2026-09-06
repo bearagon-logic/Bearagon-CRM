@@ -25,6 +25,7 @@ type Client = {
   phone: string;
   relationshipType: string;
   stage: string;
+  onboardingStatus: string;
   nextStep: string;
   dueDate: string;
   workspaceStatus: string;
@@ -106,6 +107,11 @@ export default function AccountsPage() {
       setClients((current) => [data.client as Client, ...current]);
       setForm(blank);
       setOpen(false);
+      router.push(
+        data.client.onboardingStatus === "active"
+          ? `/clients/${data.client.id}?tab=onboarding`
+          : `/clients/${data.client.id}`,
+      );
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unable to add account.");
     } finally {
@@ -117,7 +123,7 @@ export default function AccountsPage() {
     (stage === "All clients" || client.stage === stage)
     && [client.companyName, client.contactName, client.email].some((value) => value.toLowerCase().includes(query.toLowerCase()))
   )), [clients, stage, query]);
-  const active = clients.filter((client) => deliveryStages.includes(client.stage)).length;
+  const active = clients.filter((client) => ["planned", "active", "blocked"].includes(client.onboardingStatus)).length;
   const openTasks = clients.reduce((sum, client) => sum + client.openTasks, 0);
 
   return (
