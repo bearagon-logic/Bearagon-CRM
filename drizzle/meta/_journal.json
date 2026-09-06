@@ -57,6 +57,13 @@
       "when": 1788669704485,
       "tag": "0007_mysterious_silver_samurai",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1788700551206,
+      "tag": "0008_uneven_thanos",
+      "breakpoints": true
     }
   ]
 }

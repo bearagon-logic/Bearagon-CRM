@@ -11,6 +11,8 @@ const migrationFiles = [
   "0004_ops_foundation.sql",
   "0005_tighten_ops_integrity.sql",
   "0006_ops_integrity_guards.sql",
+  "0007_mysterious_silver_samurai.sql",
+  "0008_uneven_thanos.sql",
 ];
 
 async function freshDatabase() {
@@ -43,6 +45,8 @@ test("the complete migration chain creates the canonical Ops domain", async () =
     "automation_installations",
     "decision_requests",
     "operator_audit_events",
+    "account_services",
+    "service_installations",
   ]) {
     assert.ok(tables.includes(table), `${table} should exist`);
   }
@@ -69,6 +73,22 @@ test("database checks reject invented runtime state", async () => {
         .run("install_one", "acct_one", "blueprint_one", "probably_running"),
     /CHECK constraint failed/,
   );
+});
+
+test("service assignments enforce account boundaries and preserve unknown prices", async () => {
+  const database = await freshDatabase();
+  database.exec(`
+    INSERT INTO accounts (id, name) VALUES ('a','A'),('b','B');
+    INSERT INTO automation_blueprints (id,account_id,key,name,trigger_summary,action_summary) VALUES ('bp','a','bp','Example','When','Then');
+    INSERT INTO automation_installations (id,account_id,blueprint_id) VALUES ('i','a','bp');
+    INSERT INTO account_services (id,account_id,name) VALUES ('s','a','Service'),('other','b','Other');
+    INSERT INTO service_installations (service_id,installation_id) VALUES ('s','i');
+  `);
+  assert.equal(database.prepare("SELECT monthly_fee_cents FROM account_services WHERE id='s'").get().monthly_fee_cents, null);
+  assert.throws(() => database.exec("INSERT INTO service_installations VALUES ('other','i')"), /same account/);
+  assert.throws(() => database.exec("UPDATE account_services SET account_id='b' WHERE id='s'"), /cannot transfer/);
+  assert.throws(() => database.exec("UPDATE account_services SET monthly_fee_cents=-1 WHERE id='s'"), /CHECK/);
+  database.close();
 });
 
 test("one account cannot silently acquire two primary contacts", async () => {

@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { z } from "zod";
 import {
   platformAutomationSchema,
   platformConnectorSchema,
@@ -43,7 +44,8 @@ export function consolePlatformConfigured() {
 }
 
 export async function getPlatformFleet() {
-  return platformGet<unknown>("/v1/fleet");
+  const payload = await platformGet<unknown>("/v1/fleet");
+  return z.object({ clients: z.array(z.object({ id: z.string(), name: z.string() })) }).parse(payload);
 }
 
 export async function getWorkspaceAutomationOverview(

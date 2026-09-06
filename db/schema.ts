@@ -424,6 +424,33 @@ export const decisionRequests = sqliteTable(
   ],
 );
 
+export const accountServices = sqliteTable("account_services", {
+  id: text("id").primaryKey(),
+  accountId: text("account_id").notNull().references(() => accounts.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  status: text("status").notNull().default("proposed"),
+  quoteRef: text("quote_ref").notNull().default(""),
+  acceptedAt: text("accepted_at").notNull().default(""),
+  setupFeeCents: integer("setup_fee_cents"),
+  monthlyFeeCents: integer("monthly_fee_cents"),
+  currency: text("currency").notNull().default("USD"),
+  scope: text("scope").notNull().default(""),
+  maintenance: text("maintenance").notNull().default(""),
+  configuration: text("configuration").notNull().default(""),
+  startDate: text("start_date").notNull().default(""),
+  endDate: text("end_date").notNull().default(""),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  index("idx_account_services_account").on(table.accountId),
+  check("account_services_status", sql`${table.status} in ('proposed','ordered','active','ended')`),
+  check("account_services_fees", sql`(${table.setupFeeCents} is null or ${table.setupFeeCents} >= 0) and (${table.monthlyFeeCents} is null or ${table.monthlyFeeCents} >= 0)`),
+]);
+
+export const serviceInstallations = sqliteTable("service_installations", {
+  serviceId: text("service_id").notNull().references(() => accountServices.id, { onDelete: "cascade" }),
+  installationId: text("installation_id").notNull().references(() => automationInstallations.id, { onDelete: "cascade" }),
+}, (table) => [primaryKey({ columns: [table.serviceId, table.installationId] })]);
+
 export const operatorAuditEvents = sqliteTable(
   "operator_audit_events",
   {
