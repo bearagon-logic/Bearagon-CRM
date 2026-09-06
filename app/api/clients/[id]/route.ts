@@ -133,6 +133,7 @@ async function loadAccountDetail(id: string) {
       email: primaryContact?.email ?? "",
       phone: primaryContact?.phone ?? "",
       relationshipType: account.relationshipType,
+      organizationKind: account.organizationKind,
       stage: engagement ? displayLabel(engagement.stage) : "Not started",
       onboardingStatus: engagement?.status ?? "not_started",
       nextStep: engagement?.nextStep ?? "Start onboarding",
@@ -236,7 +237,7 @@ export async function PATCH(
       await db.batch([
         db
           .update(accounts)
-          .set({ relationshipType: "client", updatedAt: now })
+          .set({ relationshipType: account.organizationKind === "internal" ? "other" : "client", updatedAt: now })
           .where(eq(accounts.id, id)),
         db.insert(engagements).values({
           id: engagementId,

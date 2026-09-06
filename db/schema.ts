@@ -85,6 +85,11 @@ export const accounts = sqliteTable(
     id: text("id").primaryKey(),
     name: text("name").notNull(),
     relationshipType: text("relationship_type").notNull().default("prospect"),
+    organizationKind: text("organization_kind").notNull().default("external"),
+    relationshipOwner: text("relationship_owner").notNull().default(""),
+    salesStage: text("sales_stage").notNull().default("new"),
+    followUpDate: text("follow_up_date").notNull().default(""),
+    relationshipNextAction: text("relationship_next_action").notNull().default(""),
     status: text("status").notNull().default("active"),
     website: text("website").notNull().default(""),
     notes: text("notes").notNull().default(""),
@@ -97,6 +102,9 @@ export const accounts = sqliteTable(
       table.relationshipType,
     ),
     index("idx_accounts_name").on(table.name),
+    uniqueIndex("uq_internal_organization").on(table.organizationKind).where(sql`${table.organizationKind} = 'internal'`),
+    check("accounts_organization_kind_check", sql`${table.organizationKind} in ('external', 'internal')`),
+    check("accounts_sales_stage_check", sql`${table.salesStage} in ('new', 'contacted', 'qualified', 'proposal', 'won', 'lost', 'nurture')`),
     check(
       "accounts_relationship_type_check",
       sql`${table.relationshipType} in ('prospect', 'client', 'partner', 'vendor', 'other')`,
@@ -118,6 +126,8 @@ export const contacts = sqliteTable(
     jobTitle: text("job_title").notNull().default(""),
     email: text("email").notNull().default(""),
     emailNormalized: text("email_normalized"),
+    marketingStatus: text("marketing_status").notNull().default("unknown"),
+    marketingEvidence: text("marketing_evidence").notNull().default(""),
     phone: text("phone").notNull().default(""),
     notes: text("notes").notNull().default(""),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
@@ -125,6 +135,8 @@ export const contacts = sqliteTable(
   },
   (table) => [
     index("idx_contacts_display_name").on(table.displayName),
+    check("contacts_marketing_status_check", sql`${table.marketingStatus} in ('unknown', 'subscribed', 'unsubscribed')`),
+    check("contacts_marketing_evidence_check", sql`${table.marketingStatus} != 'subscribed' or length(trim(${table.marketingEvidence})) > 0`),
     uniqueIndex("uq_contacts_email_normalized")
       .on(table.emailNormalized)
       .where(sql`${table.emailNormalized} is not null`),
@@ -160,6 +172,29 @@ export const accountContacts = sqliteTable(
     ),
   ],
 );
+
+export const inquiries = sqliteTable("inquiries", {
+  id: text("id").primaryKey(),
+  requestKey: text("request_key").notNull().unique(),
+  accountId: text("account_id").notNull().references(() => accounts.id, { onDelete: "restrict" }),
+  contactId: text("contact_id").notNull().references(() => contacts.id, { onDelete: "restrict" }),
+  source: text("source").notNull(),
+  summary: text("summary").notNull(),
+  status: text("status").notNull().default("new"),
+  owner: text("owner").notNull().default(""),
+  nextAction: text("next_action").notNull().default(""),
+  followUpDate: text("follow_up_date").notNull().default(""),
+  resolution: text("resolution").notNull().default(""),
+  recordedBy: text("recorded_by").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  index("idx_inquiries_account").on(table.accountId),
+  index("idx_inquiries_status_followup").on(table.status, table.followUpDate),
+  check("inquiries_source_check", sql`${table.source} in ('website', 'phone', 'email', 'referral', 'other')`),
+  check("inquiries_status_check", sql`${table.status} in ('new', 'working', 'qualified', 'closed')`),
+  check("inquiries_resolution_check", sql`${table.status} != 'closed' or length(trim(${table.resolution})) > 0`),
+]);
 
 export const engagements = sqliteTable(
   "engagements",

@@ -13,6 +13,7 @@ const migrationFiles = [
   "0006_ops_integrity_guards.sql",
   "0007_mysterious_silver_samurai.sql",
   "0008_uneven_thanos.sql",
+  "0009_nappy_black_crow.sql",
 ];
 
 async function freshDatabase() {
@@ -47,10 +48,40 @@ test("the complete migration chain creates the canonical Ops domain", async () =
     "operator_audit_events",
     "account_services",
     "service_installations",
+    "inquiries",
   ]) {
     assert.ok(tables.includes(table), `${table} should exist`);
   }
   assert.deepEqual(database.prepare("PRAGMA foreign_key_check").all(), []);
+});
+
+test("intake migration preserves populated accounts, contacts and their associations", async () => {
+  const db = new DatabaseSync(":memory:");
+  db.exec("PRAGMA foreign_keys = ON");
+  for (const file of migrationFiles.slice(0, -1)) db.exec(await readFile(new URL(`../drizzle/${file}`, import.meta.url), "utf8"));
+  db.exec("INSERT INTO accounts(id,name,notes) VALUES('existing','Existing','Preserve me'); INSERT INTO contacts(id,display_name,email_normalized) VALUES('contact','Contact','one@example.com'); INSERT INTO account_contacts(account_id,contact_id,is_primary) VALUES('existing','contact',1)");
+  const triggers = db.prepare("SELECT name FROM sqlite_schema WHERE type='trigger' ORDER BY name").all();
+  db.exec(await readFile(new URL(`../drizzle/${migrationFiles.at(-1)}`, import.meta.url), "utf8"));
+  assert.equal(db.prepare("SELECT notes FROM accounts WHERE id='existing'").get().notes, "Preserve me");
+  assert.equal(db.prepare("SELECT count(*) n FROM account_contacts").get().n, 1);
+  assert.equal(db.prepare("SELECT marketing_status FROM contacts").get().marketing_status, "unknown");
+  assert.deepEqual(db.prepare("SELECT name FROM sqlite_schema WHERE type='trigger' ORDER BY name").all(), triggers);
+  assert.deepEqual(db.prepare("PRAGMA foreign_key_check").all(), []);
+  db.close();
+});
+
+test("inquiry database constraints protect idempotency, resolution and internal identity", async () => {
+  const db = await freshDatabase();
+  db.exec("INSERT INTO accounts(id,name) VALUES('a','One'); INSERT INTO contacts(id,display_name) VALUES('c','Contact')");
+  assert.throws(() => db.exec("UPDATE contacts SET marketing_status='subscribed' WHERE id='c'"), /CHECK/);
+  db.exec("INSERT INTO inquiries(id,request_key,account_id,contact_id,source,summary,recorded_by) VALUES('i','key','a','c','phone','Question','operator')");
+  assert.throws(() => db.exec("INSERT INTO inquiries(id,request_key,account_id,contact_id,source,summary,recorded_by) VALUES('ii','key','a','c','phone','Question','operator')"), /UNIQUE/);
+  assert.throws(() => db.exec("UPDATE inquiries SET status='closed' WHERE id='i'"), /CHECK/);
+  db.exec("UPDATE inquiries SET status='closed',resolution='Resolved' WHERE id='i'");
+  db.exec("INSERT INTO accounts(id,name,organization_kind) VALUES('internal','Bearagon','internal')");
+  assert.throws(() => db.exec("INSERT INTO accounts(id,name,organization_kind) VALUES('internal2','Duplicate','internal')"), /UNIQUE/);
+  assert.throws(() => db.exec("DELETE FROM contacts WHERE id='c'"), /FOREIGN KEY/);
+  db.close();
 });
 
 test("database checks reject invented runtime state", async () => {

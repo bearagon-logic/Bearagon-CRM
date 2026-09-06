@@ -1,57 +1,80 @@
 "use client";
-
-import { useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { Inbox, Plus, Search, ArrowUpRight } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
-type Item = { id:number; type:"Call"|"Text"; name:string; contact:string; time:string; category:string; priority:"Urgent"|"Normal"|"Spam"; summary:string; transcript:string };
-const initialItems:Item[] = [
-  { id:1,type:"Call",name:"Jordan Lee",contact:"New prospect",time:"10:42 AM",category:"Needs callback",priority:"Urgent",summary:"Website is down before a customer launch. Requested a callback as soon as possible.",transcript:"Caller reported that the company website became unavailable this morning. Cipher collected their name, company, callback number, and impact. No technical promise was made." },
-  { id:2,type:"Text",name:"Maya Chen",contact:"Atlas Design Co.",time:"9:18 AM",category:"Appointment request",priority:"Normal",summary:"Asked to move tomorrow’s onboarding call to the afternoon.",transcript:"Hi, could we move tomorrow’s onboarding call to sometime after 2 PM? Thank you." },
-  { id:3,type:"Call",name:"Unknown caller",contact:"Unverified number",time:"8:54 AM",category:"Likely solicitation",priority:"Spam",summary:"Repeated sales solicitation with no client or service context.",transcript:"Filtered after the caller could not provide a client name, project, or legitimate service request." },
-  { id:4,type:"Call",name:"Robert Ellis",contact:"North Ridge Plumbing",time:"Yesterday",category:"Billing question",priority:"Normal",summary:"Asked whether the onboarding deposit was received.",transcript:"Cipher captured the question for the billing team. No account balance or payment information was disclosed." },
-];
-const filters=["All","Urgent","Needs reply","Filtered"];
+type Account = { id: string; companyName: string; organizationKind: string };
+type Inquiry = { id: string; accountId: string; companyName: string; contactName: string; email: string; phone: string; source: string; summary: string; status: string; owner: string; nextAction: string; followUpDate: string; resolution: string; createdAt: string; recordedBy: string };
+const empty = { accountId: "", companyName: "", contactName: "", email: "", phone: "", source: "phone", summary: "", owner: "", nextAction: "", followUpDate: "" };
+const states = ["new", "working", "qualified", "closed"];
+function today() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
+async function read(response: Response) { const data = await response.json() as { inquiries?: Inquiry[]; clients?: Account[]; error?: string; inquiry?: Inquiry; contactReused?: boolean }; if (!response.ok) throw new Error(data.error || "Unable to load records."); return data; }
 
-export default function Communications(){
-  const [filter,setFilter]=useState("All");
-  const [selected,setSelected]=useState<Item>(initialItems[0]);
-  const [handled,setHandled]=useState<number[]>([]);
-  const [escalated,setEscalated]=useState<number[]>([]);
-  const [rules,setRules]=useState({disclosure:true,sensitive:true,emergency:true,recording:false});
-  const visible=useMemo(()=>initialItems.filter(item=>filter==="All"||(filter==="Urgent"&&item.priority==="Urgent")||(filter==="Needs reply"&&item.priority!=="Spam"&&!handled.includes(item.id))||(filter==="Filtered"&&item.priority==="Spam")),[filter,handled]);
-  useEffect(()=>{if(!visible.some((item)=>item.id===selected.id))setSelected(visible[0]||initialItems[0])},[visible,selected.id]);
-  return <AppShell><main className="communications-page">
-    <section className="communications-hero"><div><small>CLIENT COMMUNICATIONS</small><h1>Every caller gets a clear next step.</h1><p>Answer, filter, summarize, and route inbound conversations with human control.</p></div><a href="/security">Review safeguards →</a></section>
-    <div className="communications-content">
-      <section className="communications-metrics"><article><small>NEW TODAY</small><strong>3</strong><span>Calls and messages</span></article><article><small>URGENT</small><strong>1</strong><span>Needs human callback</span></article><article><small>FILTERED</small><strong>1</strong><span>Likely solicitation</span></article><article><small>AVERAGE ANSWER</small><strong>&lt; 10s</strong><span>Target response time</span></article></section>
-      <section className="communications-layout" id="inbox">
-        <div className="inbox-panel">
-          <div className="communications-heading"><div><small>UNIFIED INBOX</small><h2>Calls and messages</h2></div><span>{visible.length} shown</span></div>
-          <div className="communications-filters">{filters.map(item=><button key={item} className={filter===item?"selected":""} onClick={()=>setFilter(item)}>{item}</button>)}</div>
-          <div className="communications-list">{visible.map(item=><button key={item.id} className={"communication-row "+(selected.id===item.id?"active":"")} onClick={()=>setSelected(item)}>
-            <i>{item.type==="Call"?"☎":"✉"}</i><span><b>{item.name}</b><small>{item.summary}</small></span><em className={item.priority.toLowerCase()}>{item.priority}</em><time>{item.time}</time>
-          </button>)}{!visible.length&&<div className="communication-empty">No conversations match this view.</div>}</div>
-        </div>
-        <aside className="conversation-detail">
-          <div className="conversation-title"><span><small>{selected.type.toUpperCase()} · {selected.time}</small><h2>{selected.name}</h2><p>{selected.contact}</p></span><em className={selected.priority.toLowerCase()}>{selected.priority}</em></div>
-          <div className="intent-card"><small>DETECTED INTENT</small><b>{selected.category}</b><p>{selected.summary}</p></div>
-          <div className="transcript-card"><small>MESSAGE SUMMARY</small><p>{selected.transcript}</p><span>Demo content · Recording not enabled</span></div>
-          <div className="conversation-actions">
-            <button className="primary-call-action" onClick={()=>setHandled(v=>v.includes(selected.id)?v:[...v,selected.id])}>{handled.includes(selected.id)?"✓ Marked handled":"Mark handled"}</button>
-            <button onClick={()=>setEscalated(v=>v.includes(selected.id)?v:[...v,selected.id])}>{escalated.includes(selected.id)?"✓ Escalated":"Escalate to human"}</button>
-          </div>
-        </aside>
-      </section>
-      <section className="routing-section" id="routing">
-        <div className="routing-heading"><small>ANSWERING GUARDRAILS</small><h2>Rules for every conversation</h2><p>These demonstration controls show what clients can approve before their phone line goes live.</p></div>
-        <div className="routing-rules">
-          <label><span><b>Identify as an AI assistant</b><small>Give a clear disclosure at the beginning of the call.</small></span><input type="checkbox" checked={rules.disclosure} onChange={()=>setRules({...rules,disclosure:!rules.disclosure})}/></label>
-          <label><span><b>Protect sensitive information</b><small>Never repeat passwords, payment details, or private account data.</small></span><input type="checkbox" checked={rules.sensitive} onChange={()=>setRules({...rules,sensitive:!rules.sensitive})}/></label>
-          <label><span><b>Emergency handoff</b><small>Stop the business flow and direct emergencies to appropriate emergency services.</small></span><input type="checkbox" checked={rules.emergency} onChange={()=>setRules({...rules,emergency:!rules.emergency})}/></label>
-          <label><span><b>Recording and transcription</b><small>Off until the client approves a legally appropriate consent notice.</small></span><input type="checkbox" checked={rules.recording} onChange={()=>setRules({...rules,recording:!rules.recording})}/></label>
-        </div>
-      </section>
-      <section className="phone-flow" id="phone-flow"><img src="/cipher-bearagon.png" alt="" aria-hidden="true"/><div><small>CIPHER CALL FLOW</small><h2>Greet → Verify → Understand → Route → Log</h2><p>No promises, payments, or sensitive disclosures without an authorized person.</p></div></section>
+export default function Communications() {
+  const [items, setItems] = useState<Inquiry[]>([]), [accounts, setAccounts] = useState<Account[]>([]);
+  const [selected, setSelected] = useState<Inquiry | null>(null), [filter, setFilter] = useState("open"), [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(true), [saving, setSaving] = useState(false), [error, setError] = useState(""), [notice, setNotice] = useState("");
+  const [open, setOpen] = useState(false), [form, setForm] = useState(empty), [requestKey, setRequestKey] = useState("");
+  async function refresh(selectId?: string) {
+    const [inbox, directory] = await Promise.all([fetch("/api/inquiries").then(read), fetch("/api/clients").then(read)]);
+    const next = inbox.inquiries || [];
+    setItems(next); setAccounts((directory.clients || []).filter((a) => a.organizationKind !== "internal"));
+    if (selectId) setSelected(next.find((i) => i.id === selectId) || null);
+  }
+  useEffect(() => { refresh().catch((e) => setError(e.message)).finally(() => setLoading(false)); }, []);
+  const visible = useMemo(() => items.filter((i) =>
+    (filter === "all" || (filter === "open" ? i.status !== "closed" : filter === "overdue" ? i.status !== "closed" && !!i.followUpDate && i.followUpDate < today() : i.status === filter))
+    && [i.companyName, i.contactName, i.summary, i.owner].some((v) => v.toLowerCase().includes(query.toLowerCase()))), [items, filter, query]);
+  async function create(event: FormEvent) {
+    event.preventDefault(); setSaving(true); setError(""); setNotice("");
+    try {
+      const data = await fetch("/api/inquiries", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...form, requestKey }) }).then(read);
+      setOpen(false); setForm(empty); setFilter("all"); setQuery("");
+      setNotice(data.contactReused ? "Inquiry saved. The existing contact was linked; their details and marketing preference were preserved." : "Inquiry saved. No onboarding or marketing subscription was started.");
+      await refresh(data.inquiry?.id);
+    } catch (e) { setError(e instanceof Error ? e.message : "Unable to save inquiry."); }
+    finally { setSaving(false); }
+  }
+  async function save(event: FormEvent) {
+    event.preventDefault(); if (!selected) return; setSaving(true); setError(""); setNotice("");
+    try {
+      await fetch("/api/inquiries", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(selected) }).then(read);
+      setNotice("Follow-up saved. Qualifying an inquiry does not change the company to a client."); await refresh(selected.id);
+    } catch (e) { setError(e instanceof Error ? e.message : "Unable to save follow-up."); }
+    finally { setSaving(false); }
+  }
+  return <AppShell><main className="ops-intake-page">
+    <header className="ops-intake-header"><div><small>RELATIONSHIPS · INBOX</small><h1>Inquiries</h1><p>From first contact to a clear next step.</p></div><Button onClick={() => { setError(""); setRequestKey(crypto.randomUUID()); setOpen(true); }}><Plus aria-hidden="true" />Record inquiry</Button></header>
+    <div className="ops-intake-body">
+      <p className="intake-connection-note"><b>Manual intake is ready.</b> Record website messages, calls, and referrals here. Website and phone-service feeds are not connected yet; this page does not answer calls or send messages.</p>
+      {error && !open && <p role="alert" className="form-error">{error} <button onClick={() => { setError(""); refresh().catch((e) => setError(e.message)); }}>Retry</button></p>}
+      {notice && <p role="status" className="intake-notice">{notice}</p>}
+      <div className="intake-toolbar"><label className="intake-search"><Search aria-hidden="true"/><Input aria-label="Search inquiries" placeholder="Search company, contact, or message" value={query} onChange={(e) => setQuery(e.target.value)} /></label><label>Show<select value={filter} onChange={(e) => setFilter(e.target.value)}><option value="open">Open inquiries</option><option value="new">New</option><option value="working">Working</option><option value="qualified">Qualified</option><option value="overdue">Overdue follow-up</option><option value="closed">Closed</option><option value="all">All inquiries</option></select></label><span>{visible.length} shown</span></div>
+      <div className="intake-workspace">
+        <section className="intake-list" aria-label="Inquiry list">
+          {loading && <p className="intake-empty">Loading inquiries…</p>}
+          {!loading && !visible.length && <div className="intake-empty"><Inbox aria-hidden="true"/><h2>{items.length ? "No matching inquiries" : "A real inbox starts here"}</h2><p>{items.length ? "Change the filter or search to see more records." : "Record the next call or website message. We’ll link it to a company and keep its follow-up here."}</p></div>}
+          {visible.map((item) => <button key={item.id} className={`intake-row ${selected?.id === item.id ? "selected" : ""}`} aria-pressed={selected?.id === item.id} disabled={saving} onClick={() => { if (selected && JSON.stringify(selected) !== JSON.stringify(items.find((i) => i.id === selected.id)) && !window.confirm("Discard unsaved follow-up changes?")) return; setSelected({ ...item }); setNotice(""); }}><span className="intake-row-heading"><b>{item.companyName}</b><em className={`intake-status ${item.status}`}>{item.status}</em></span><span>{item.contactName} · {item.source}</span><p>{item.summary}</p><span className="intake-row-footer"><span>{item.owner || "Unassigned"}</span><span className={item.status !== "closed" && item.followUpDate && item.followUpDate < today() ? "intake-overdue" : ""}>{item.followUpDate || "No follow-up date"}</span></span></button>)}
+        </section>
+        <section className="intake-detail" aria-label="Inquiry details">{selected ? <form onSubmit={save}>
+          <div className="intake-detail-heading"><small>{selected.source} · {selected.createdAt.slice(0, 10)}</small><h2>{selected.companyName}</h2><Link href={`/clients/${selected.accountId}`}>Open account <ArrowUpRight aria-hidden="true"/></Link></div>
+          <p><b>{selected.contactName}</b><br/>{selected.email || "No email recorded"}<br/>{selected.phone || "No phone recorded"}</p><blockquote className="intake-message">{selected.summary}</blockquote>
+          <div className="form-grid"><label>Status<select value={selected.status} onChange={(e) => setSelected({ ...selected, status: e.target.value })}>{states.map((s) => <option key={s} value={s}>{s[0].toUpperCase() + s.slice(1)}</option>)}</select></label><label>Owner<Input value={selected.owner} placeholder="Employee name or email" onChange={(e) => setSelected({ ...selected, owner: e.target.value })}/></label><label>Next action<Input maxLength={500} value={selected.nextAction} onChange={(e) => setSelected({ ...selected, nextAction: e.target.value })}/></label><label>Follow-up date<Input type="date" value={selected.followUpDate} onChange={(e) => setSelected({ ...selected, followUpDate: e.target.value })}/></label><label className="intake-wide">Resolution / handoff note<Textarea required={selected.status === "closed"} value={selected.resolution} maxLength={2000} placeholder="Record the outcome or handoff. Required to close." onChange={(e) => setSelected({ ...selected, resolution: e.target.value })}/></label></div>
+          <div className="intake-save"><span>Recorded by {selected.recordedBy}</span><Button disabled={saving} type="submit">{saving ? "Saving…" : "Save follow-up"}</Button></div>
+        </form> : <div className="intake-empty"><h2>Select an inquiry</h2><p>Review the message, assign an owner, and plan the next conversation.</p></div>}</section>
+      </div>
     </div>
+    <Dialog open={open} onOpenChange={(v) => { if (!saving) setOpen(v); }}><DialogContent className="crm-dialog intake-dialog"><form onSubmit={create}><DialogHeader><DialogTitle>Record an inquiry</DialogTitle><DialogDescription>Choose an existing company or create a prospect. Nothing is sent to the contact.</DialogDescription></DialogHeader><div className="form-grid">
+      <label className="intake-wide">Company<select value={form.accountId} onChange={(e) => setForm({ ...form, accountId: e.target.value })}><option value="">Create a new prospect company</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.companyName}</option>)}</select></label>
+      {!form.accountId && <label className="intake-wide">New company name<Input required maxLength={200} value={form.companyName} onChange={(e) => setForm({ ...form, companyName: e.target.value })}/></label>}
+      <label>Contact name<Input required maxLength={200} value={form.contactName} onChange={(e) => setForm({ ...form, contactName: e.target.value })}/></label><label>Source<select value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })}>{["phone", "website", "email", "referral", "other"].map((s) => <option key={s}>{s}</option>)}</select></label>
+      <label>Email<Input type="email" required={!form.phone} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })}/></label><label>Callback number<Input type="tel" required={!form.email} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })}/></label>
+      <label className="intake-wide">What do they need?<Textarea required maxLength={5000} value={form.summary} onChange={(e) => setForm({ ...form, summary: e.target.value })}/></label><label>Owner<Input value={form.owner} placeholder="Employee name or email" onChange={(e) => setForm({ ...form, owner: e.target.value })}/></label><label>Follow-up date<Input type="date" value={form.followUpDate} onChange={(e) => setForm({ ...form, followUpDate: e.target.value })}/></label><label className="intake-wide">Next action<Input maxLength={500} value={form.nextAction} onChange={(e) => setForm({ ...form, nextAction: e.target.value })}/></label>
+    </div>{error && <p role="alert" className="form-error">{error}</p>}<DialogFooter><Button type="button" variant="outline" disabled={saving} onClick={() => setOpen(false)}>Cancel</Button><Button disabled={saving}>{saving ? "Saving…" : "Save inquiry"}</Button></DialogFooter></form></DialogContent></Dialog>
   </main></AppShell>;
 }

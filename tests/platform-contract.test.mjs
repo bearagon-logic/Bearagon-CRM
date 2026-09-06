@@ -20,6 +20,29 @@ after(async () => {
 const contracts = await vite.ssrLoadModule("/lib/contracts/platform.ts");
 const { serviceInput } = await vite.ssrLoadModule("/lib/service-input.ts");
 const { serviceObservation } = await vite.ssrLoadModule("/lib/service-observation.ts");
+const { inquiryCreateInput, inquiryUpdateInput, relationshipInput } = await vite.ssrLoadModule("/lib/inquiry-input.ts");
+
+test("inquiries require contactability, source and valid follow-up without accepting status injection", () => {
+  const inquiry = { requestKey: "00000000-0000-4000-8000-000000000001", companyName: "One", contactName: "Person", email: " PERSON@EXAMPLE.COM ", source: "website", summary: "Needs help", status: "qualified" };
+  const parsed = inquiryCreateInput.parse(inquiry);
+  assert.equal(parsed.email, "person@example.com");
+  assert.equal(parsed.status, undefined);
+  assert.equal(inquiryCreateInput.safeParse({ ...inquiry, email: "" }).success, false);
+  assert.equal(inquiryCreateInput.safeParse({ ...inquiry, email: "", phone: "+1 555 0100" }).success, true);
+  assert.equal(inquiryCreateInput.safeParse({ ...inquiry, companyName: "" }).success, false);
+  assert.equal(inquiryCreateInput.safeParse({ ...inquiry, followUpDate: "2026-02-30" }).success, false);
+  assert.equal(inquiryCreateInput.safeParse({ ...inquiry, source: "cipher" }).success, false);
+});
+
+test("closing inquiries requires a resolution; subscriptions require evidence", () => {
+  const update = { id: "one", status: "closed", owner: "", nextAction: "", followUpDate: "", resolution: "" };
+  assert.equal(inquiryUpdateInput.safeParse(update).success, false);
+  assert.equal(inquiryUpdateInput.safeParse({ ...update, resolution: "Duplicate request; linked to current delivery." }).success, true);
+  const relationship = { relationshipOwner: "", salesStage: "won", relationshipNextAction: "", followUpDate: "", marketingStatus: "unknown", marketingEvidence: "" };
+  assert.equal(relationshipInput.safeParse(relationship).success, true);
+  assert.equal(relationshipInput.safeParse({ ...relationship, marketingStatus: "subscribed" }).success, false);
+  assert.equal(relationshipInput.safeParse({ ...relationship, marketingStatus: "subscribed", marketingEvidence: "Requested newsletter on form, 2026-09-06" }).success, true);
+});
 
 test("purchased services require evidence of acceptance and valid fees and dates", () => {
   const service = { name: "Lead follow-up", status: "proposed", quoteRef: "", acceptedAt: "", setupFeeCents: null, monthlyFeeCents: null, currency: "USD", scope: "", maintenance: "", configuration: "", startDate: "", endDate: "", installationIds: [] };

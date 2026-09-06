@@ -4,6 +4,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
 import { AccountServices, ServiceSummary } from "@/components/account-services";
+import { AccountRelationship } from "@/components/account-relationship";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,6 +19,7 @@ type Client = {
   dueDate: string;
   notes: string;
   relationshipType: string;
+  organizationKind?: string;
   onboardingStatus: string;
 };
 type Task = {
@@ -281,7 +283,7 @@ export default function ClientDetail() {
       <section className="detail-hero">
         <div className="client-avatar">{initials}</div>
         <div>
-          <small>ACCOUNT WORKSPACE · {client.relationshipType}</small>
+          <small>{client.organizationKind === "internal" ? "INTERNAL OPERATIONS · BEARAGON" : `ACCOUNT WORKSPACE · ${client.relationshipType}`}</small>
           <h1>{client.companyName}</h1>
           <p>
             {client.contactName} · {client.email}
@@ -302,6 +304,7 @@ export default function ClientDetail() {
       </nav>
       {tab === "Overview" && <div className="detail-content">
         <section className="detail-main">
+          <AccountRelationship accountId={id} onRelationshipChange={(relationshipType) => setClient((current) => current ? { ...current, relationshipType } : current)} />
           <ServiceSummary accountId={id} openServices={() => selectTab("Automations")} />
           {client.stage === "Not started" ? <article className="detail-card progress-card">
             <div className="card-title">

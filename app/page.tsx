@@ -25,6 +25,9 @@ type Client = {
   email: string;
   phone: string;
   relationshipType: string;
+  organizationKind?: string;
+  salesStage?: string;
+  relationshipOwner?: string;
   stage: string;
   onboardingStatus: string;
   nextStep: string;
@@ -57,6 +60,7 @@ export default function AccountsPage() {
   const requestedStage = searchParams.get("stage") || "All clients";
   const stage = stages.includes(requestedStage) ? requestedStage : "All clients";
   const query = searchParams.get("q") || "";
+  const sales = searchParams.get("sales") || "all";
   const [clients, setClients] = useState<Client[]>([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(blank);
@@ -64,7 +68,7 @@ export default function AccountsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  function setFilter(key: "stage" | "q", value: string) {
+  function setFilter(key: "stage" | "q" | "sales", value: string) {
     const params = new URLSearchParams(searchParams.toString());
     if (!value || (key === "stage" && value === "All clients")) params.delete(key);
     else params.set(key, value);
@@ -120,12 +124,27 @@ export default function AccountsPage() {
     }
   }
 
+  const external = clients.filter((client) => client.organizationKind !== "internal");
+  const internal = clients.find((client) => client.organizationKind === "internal");
+  async function openInternalProfile() {
+    setSaving(true); setError("");
+    try {
+      const response = await fetch("/api/organization", { method: "POST" });
+      const data = await response.json() as { accountId?: string; error?: string };
+      if (!response.ok || !data.accountId) throw new Error(data.error || "Unable to create internal profile.");
+      router.push(`/clients/${data.accountId}?tab=automations`);
+    } catch (e) { setError(e instanceof Error ? e.message : "Unable to open profile."); }
+    finally { setSaving(false); }
+  }
   const visible = useMemo(() => clients.filter((client) => (
+    client.organizationKind !== "internal"
+    && (sales === "all" || client.salesStage === sales)
+    &&
     (stage === "All clients" || client.stage === stage)
     && [client.companyName, client.contactName, client.email].some((value) => value.toLowerCase().includes(query.toLowerCase()))
-  )), [clients, stage, query]);
-  const active = clients.filter((client) => ["planned", "active", "blocked"].includes(client.onboardingStatus)).length;
-  const openTasks = clients.reduce((sum, client) => sum + client.openTasks, 0);
+  )), [clients, stage, query, sales]);
+  const active = external.filter((client) => ["planned", "active", "blocked"].includes(client.onboardingStatus)).length;
+  const openTasks = external.reduce((sum, client) => sum + client.openTasks, 0);
 
   return (
     <AppShell>
@@ -142,12 +161,15 @@ export default function AccountsPage() {
         <AccountNavigation current="directory" />
 
         <div className="content ops-account-content">
+          {error && !open && <p role="alert" className="form-error">{error}</p>}
+          <section className="internal-organization"><div><small>OUR OWN OPERATIONS</small><b>Bearagon</b><span>Internal automation portfolio · separate from the customer pipeline</span></div>{internal ? <Link href={`/clients/${internal.id}?tab=automations`}>Open internal workspace <ArrowUpRight aria-hidden="true" /></Link> : <Button variant="outline" disabled={loading || saving} onClick={openInternalProfile}>{saving ? "Opening…" : "Set up internal profile"}</Button>}</section>
           <section className="panel account-directory" aria-labelledby="accounts-heading">
             <div className="panelhead account-directory-head">
-              <div><small>RELATIONSHIPS</small><h2 id="accounts-heading">All accounts</h2></div>
+              <div><small>RELATIONSHIPS</small><h2 id="accounts-heading">External accounts</h2></div>
               <label className="account-search"><Search aria-hidden="true" /><input value={query} onChange={(event) => setFilter("q", event.target.value)} placeholder="Search accounts or contacts" aria-label="Search accounts or contacts" /></label>
             </div>
             <div className="account-filter-row">
+              <label className="stage-filter"><span>Relationship stage</span><select value={sales} onChange={(event) => setFilter("sales", event.target.value)}><option value="all">All relationships</option>{["new", "contacted", "qualified", "proposal", "won", "lost", "nurture"].map((s) => <option key={s} value={s}>{s[0].toUpperCase() + s.slice(1)}</option>)}</select></label>
               <label className="stage-filter"><span>Filter by delivery stage</span><select value={stage} onChange={(event) => setFilter("stage", event.target.value)} aria-label="Filter accounts by delivery stage">{stages.map((item) => <option key={item}>{item}</option>)}</select></label>
               <span className="account-count">{loading ? "" : `${visible.length} shown`}</span>
             </div>
@@ -157,7 +179,7 @@ export default function AccountsPage() {
               {!loading && visible.map((client) => (
                 <Link className="row client" href={`/clients/${client.id}`} key={client.id}>
                   <span className="name"><i>{initials(client.companyName)}</i><span><b>{client.companyName}</b><small>{client.contactName} · {client.email}</small></span></span>
-                  <span className="relationship-cell">{client.relationshipType}</span>
+                  <span className="relationship-cell">{client.relationshipType}<small>{client.salesStage || "new"}{client.relationshipOwner ? ` · ${client.relationshipOwner}` : ""}</small></span>
                   <span><em className={`pill ${client.stage.toLowerCase()}`}>{client.stage}</em></span>
                   <span className="next-action-cell">{client.nextStep || "Set next action"}</span>
                   <span className="target-cell">{client.dueDate || "Not set"}<ArrowUpRight aria-hidden="true" /></span>
@@ -171,7 +193,7 @@ export default function AccountsPage() {
             <section className="metrics ops-metrics account-summary-metrics" aria-label="Account operating summary">
               <article><small>ACTIVE DELIVERY</small><strong>{active}</strong><span>Accounts in progress</span></article>
               <article><small>OPEN TASKS</small><strong>{openTasks}</strong><span>Across checklists</span></article>
-              <article><small>WORKSPACES</small><strong className="status">{clients.filter((client) => client.workspaceStatus === "active").length}</strong><span>Linked to Console</span></article>
+              <article><small>WORKSPACES</small><strong className="status">{external.filter((client) => client.workspaceStatus === "active").length}</strong><span>Linked to Console</span></article>
             </section>
           </div>
         </div>
