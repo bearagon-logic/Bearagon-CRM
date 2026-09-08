@@ -13,6 +13,10 @@ See [ADR 0001](docs/architecture/0001-two-surfaces-one-platform.md) for the deci
 
 ## Current milestone
 
+September 8, 2026: the first real-data adoption slice of the approved Ops concept adds Work queue (`/`), Companies (`/companies`), Onboarding (`/onboarding`), Operations (`/operations`) and read-only Playbooks (`/playbooks`). The queue combines saved inquiries, active delivery and pending decisions; intake sync/review and approvals remain accessible through its shortcuts. Old account bookmarks and delivery links remain compatible. Company detail retains the existing Services and Delivery editors. The original Cipher sidebar artwork is unchanged.
+
+This is not a full concept cutover. Versioned proposals, richer guided setup, revisioned build evidence and the guarded completion milestone still need production persistence. See the canonical handbook's `OPS-PRODUCTION-ROLLOUT.md`. No schema, integration credential, accepted scope or runtime execution changes are part of this navigation release.
+
 The first production-oriented vertical slice includes:
 
 - canonical UUID-based accounts and reusable contacts;
@@ -28,7 +32,7 @@ The first production-oriented vertical slice includes:
 
 Legacy prototype tables remain in the migration chain for rollback, but the rewritten application routes do not dual-write to them.
 
-The `/connections`, `/communications`, `/cipher`, and `/security` routes are retained as design references only. They are intentionally absent from the primary navigation and are not connected to operational data.
+Connections provides integration configuration/status, and Communications uses saved inquiries and intake receipts. Connections, Security and Cipher remain under Resources & settings. Security is explicitly labeled as a reference, not live monitoring; Cipher remains the employee-facing mascot/reference page.
 
 ## Local development
 

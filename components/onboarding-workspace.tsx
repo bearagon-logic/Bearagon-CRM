@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Search, TriangleAlert } from "lucide-react";
-import { AccountNavigation } from "@/components/account-navigation";
 
 type Onboarding = {
   id: string;
@@ -63,10 +62,9 @@ export function OnboardingWorkspace() {
 
   return <main className="ops-onboarding-page">
     <header className="ops-onboarding-header">
-      <div><small>ACCOUNT DELIVERY</small><h1>Delivery queue</h1><p>Focus on active client delivery: unfinished work, blockers, and the next accountable action.</p></div>
-      <Link href="/?newAccount=1" className="ops-header-action">Add account</Link>
+      <div><small>DELIVERY WORKSPACE</small><h1>Onboarding</h1><p>Active delivery, blockers, and the next accountable action. Each row opens the company’s saved delivery plan.</p></div>
+      <Link href="/companies" className="ops-header-action">View companies</Link>
     </header>
-    <AccountNavigation current="delivery" />
     <div className="ops-onboarding-content">
       <section className="onboarding-metrics" aria-label="Delivery queue summary">
         <article><small>ACTIVE ONBOARDINGS</small><strong>{items.length}</strong><span>In delivery now</span></article>
@@ -92,7 +90,7 @@ export function OnboardingWorkspace() {
               <span className={isOverdue(item.targetDate) ? "onboarding-target overdue" : "onboarding-target"}>{targetLabel(item.targetDate)}{isOverdue(item.targetDate) && <small>Review target</small>}</span>
             </Link>;
           })}
-          {!loading && !error && !visible.length && <div className="onboarding-empty"><b>{items.length ? "No onboarding work matches this view." : "No active onboarding work."}</b><span>{items.length ? "Try a different delivery stage or search term." : "Start onboarding from an account when delivery is ready."}</span>{!items.length && <Link href="/">Open accounts</Link>}</div>}
+          {!loading && !error && !visible.length && <div className="onboarding-empty"><b>{items.length ? "No onboarding work matches this view." : "No active onboarding work."}</b><span>{items.length ? "Try a different delivery stage or search term." : "Start onboarding from a company when delivery is ready."}</span>{!items.length && <Link href="/companies">Open companies</Link>}</div>}
         </div>
       </section>
     </div>

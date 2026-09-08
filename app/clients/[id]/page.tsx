@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
+import { workspaceDestination } from "@/lib/workspace-model";
 import { AccountServices, ServiceSummary } from "@/components/account-services";
 import { AccountRelationship } from "@/components/account-relationship";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -40,12 +41,12 @@ type ClientDetailPayload = { error?:string; client?:Client; tasks?:Task[]; workf
 type AutomationPayload = { error?:string; workflow?:Workflow };
 type WorkspacePayload = { error?:string; workspace?:Workspace; activity?:Activity[] };
 const stages = ["Intake", "Connections", "Building", "Testing", "Live"];
-const workspaceTabs = ["Overview", "Onboarding", "Automations", "Activity"] as const;
+const workspaceTabs = ["Overview", "Automations", "Onboarding", "Activity"] as const;
 type WorkspaceTab = (typeof workspaceTabs)[number];
 const workspaceTabLabels: Record<WorkspaceTab, string> = {
   Overview: "Overview",
-  Onboarding: "Onboarding plan",
-  Automations: "Services & automations",
+  Onboarding: "Delivery",
+  Automations: "Services",
   Activity: "Activity",
 };
 function observationLabel(value: string) {
@@ -92,7 +93,8 @@ export default function ClientDetail() {
   }, [id]);
   useEffect(() => {
     const requested = searchParams.get("tab")?.trim().toLowerCase();
-    const selected = workspaceTabs.find((item) => item.toLowerCase() === requested);
+    const alias = requested === "services" ? "automations" : requested === "delivery" ? "onboarding" : requested;
+    const selected = workspaceTabs.find((item) => item.toLowerCase() === alias);
     setTab(selected ?? "Overview");
   }, [searchParams]);
   useEffect(() => {
@@ -274,12 +276,12 @@ export default function ClientDetail() {
     return (
       <AppShell><div className="detail-loading">
         {message || "Client not found."}
-        <Link href="/">Return to accounts</Link>
+        <Link href="/companies">Return to companies</Link>
       </div></AppShell>
     );
   return (
-    <AppShell><main className="detail-page">
-      <div className="record-breadcrumb"><Link href="/">Accounts</Link><span>/</span><span>{client.companyName}</span></div>
+    <AppShell activeSection={workspaceDestination(`/clients/${id}`, tab, client.stage === "Live" && client.onboardingStatus === "completed")}><main className="detail-page">
+      <div className="record-breadcrumb"><Link href="/companies">Companies</Link><span>/</span><span>{client.companyName}</span></div>
       <section className="detail-hero">
         <div className="client-avatar">{initials}</div>
         <div>

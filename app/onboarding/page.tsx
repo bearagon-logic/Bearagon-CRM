@@ -1,5 +1,6 @@
-import { redirect } from "next/navigation";
+import { AppShell } from "@/components/app-shell";
+import { OnboardingWorkspace } from "@/components/onboarding-workspace";
 
 export default function LegacyOnboardingPage() {
-  redirect("/accounts/onboarding");
+  return <AppShell><OnboardingWorkspace /></AppShell>;
 }

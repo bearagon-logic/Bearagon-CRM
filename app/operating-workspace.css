@@ -1,0 +1,77 @@
+/* Real-data workspace lanes; existing service and delivery editors stay intact. */
+.ops-app-shell { grid-template-columns: 240px minmax(0,1fr); }
+.ops-sidebar { overflow-y: auto; }
+.ops-navigation { margin-bottom: 24px; }
+.ops-brand img { width: 58px; height: 58px; }
+.ops-brand b, .ops-sidebar-footer b { font-size: .8125rem; }
+.ops-brand small, .ops-nav-group > small, .ops-sidebar-footer small { font-size: .75rem; }
+.ops-sidebar .ops-navigation a { min-height: 46px; font-size: .9375rem; }
+.ops-add-account { font-size: .875rem; }
+.lane-page { min-height: 100vh; color: var(--ops-text); background: var(--ops-canvas); font: 1rem/1.6 'Segoe UI',Arial,sans-serif; }
+.lane-header { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 28px clamp(20px,3.2vw,44px); min-height: 150px; color: #f5faff; border-bottom: 2px solid #b79960; background: linear-gradient(90deg,#06192cf5,#071c32dd 45%,#071c3280),url('/bearagon-ops-header.webp') center / cover; }
+.lane-header h1 { color: #fff; font: 600 clamp(1.9rem,3vw,2.5rem)/1.2 Georgia,serif; margin: 5px 0 8px; }
+.lane-header small { color: #a7d4ee; letter-spacing: .13em; font-size: .75rem; font-weight: 700; }
+.lane-header p { color: #d9e8f2; margin: 0; max-width: 680px; }
+.lane-header button { background: #f2f8fd; color: #123b60; }
+.lane-header .ops-header-action { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; padding: 10px 16px; }
+.lane-body { max-width: 1350px; margin: auto; padding: 28px clamp(20px,3.2vw,44px) 60px; display: grid; gap: 22px; }
+.lane-shortcuts { display: flex; flex-wrap: wrap; gap: 12px 24px; }
+.lane-shortcuts a { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; font-size: .875rem; font-weight: 650; color: #155e8c; }
+.lane-shortcuts a:hover { text-decoration: underline; }
+.lane-shortcuts svg { width: 16px; height: 16px; }
+.lane-note { font-size: .875rem; color: #536b80; margin: 0; line-height: 1.7; }
+.lane-panel { border: 1px solid #d2e0eb; border-radius: 14px; background: #fff; box-shadow: 0 4px 16px #12345108; overflow: hidden; }
+.lane-panel h2 { font: 650 1.2rem/1.4 'Segoe UI',Arial,sans-serif; color: #16354f; margin: 0; }
+.lane-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 22px; border-bottom: 1px solid #e1eaf2; }
+.lane-body > .lane-panel-heading { padding: 0; border: 0; }
+.lane-filter { display: flex; align-items: center; gap: 10px; font-size: .875rem; color: #455f74; }
+.lane-filter select { border: 1px solid #bdd0df; border-radius: 8px; background: #fff; padding: 10px 12px; font-size: .9375rem; color: #153c5b; }
+.lane-work-row { display: flex; align-items: center; gap: 20px; padding: 22px; text-decoration: none; color: #183b57; border-bottom: 1px solid #e6edf3; }
+.lane-work-row:last-child { border: 0; }
+.lane-work-row:hover { background: #f2f8fd; }
+.lane-work-row > div { flex: 1; min-width: 0; }
+.lane-work-row strong { font-size: 1rem; }
+.lane-work-row p { margin: 3px 0 0; color: #536b80; font-size: .9375rem; overflow-wrap: anywhere; }
+.lane-work-row > svg { width: 18px; height: 18px; flex-shrink: 0; }
+.lane-kind { color: #285f83; border: 1px solid #c9deed; background: #eff7fc; border-radius: 6px; padding: 5px 9px; font-size: .8125rem; white-space: nowrap; }
+.lane-owner { font-size: .875rem; min-width: 130px; }
+.lane-owner small { display: block; color: #586f83; font-size: .8125rem; margin-top: 4px; }
+.lane-empty { text-align: center; padding: 40px 24px; color: #516a80; }
+.lane-empty > svg { width: 30px; height: 30px; margin: 0 auto 12px; }
+.lane-empty h3, .lane-empty h2 { margin: 0 0 8px; }
+.lane-empty p { margin: 0 0 10px; }
+.lane-error { padding: 16px 20px; border: 1px solid #e7bcb4; color: #8b3627; background: #fff5f1; border-radius: 8px; margin: 0; }
+.lane-error a { color: inherit; text-decoration: underline; }
+.lane-company { padding: 24px; display: grid; gap: 20px; }
+.lane-company h2 { margin-top: 12px; }
+.lane-company p { color: #536b80; margin: 5px 0 0; }
+.lane-company dl { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px; margin: 0; }
+.lane-company dt { font-size: .8125rem; color: #536b80; }
+.lane-company dd { margin: 4px 0 0; overflow-wrap: anywhere; }
+.lane-guide-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); align-items: start; gap: 22px; }
+.lane-guide { padding: 24px; }
+.lane-guide > small { color: #315e7f; font-size: .75rem; letter-spacing: .12em; font-weight: 700; }
+.lane-guide h2 { margin-top: 8px; }
+.lane-guide p, .lane-guide li, .lane-guide dd { font-size: 1rem; color: #4e677c; }
+.lane-guide summary { padding: 12px 0; cursor: pointer; color: #155e8c; font-size: .875rem; font-weight: 650; }
+.lane-guide h3 { font: 650 1rem/1.5 'Segoe UI',Arial,sans-serif; }
+.lane-guide dl > div { padding: 10px 0; border-bottom: 1px solid #e2eaf1; }
+.lane-guide dt { font-size: .875rem; font-weight: 650; }
+.lane-guide dd { margin: 4px 0 0; }
+.lane-guide ol { padding-left: 22px; list-style: decimal; }
+.lane-guide li { margin-bottom: 10px; }
+.lane-page :focus-visible, .ops-sidebar :focus-visible { outline: 3px solid #3799cd; outline-offset: 4px; }
+.ops-app-main .record-breadcrumb a { color: #215c84; }
+.ops-app-main .client-workspace-tabs button { font-size: .9375rem; }
+.security-reference { padding: 18px 24px; margin: 0; background: #fff4dc; border-bottom: 1px solid #e1c990; color: #624b20; font: .9375rem/1.65 'Segoe UI',Arial,sans-serif; }
+@media (max-width: 780px) {
+  .ops-app-shell { grid-template-columns: 1fr; }
+  .ops-sidebar { height: auto; max-height: 100dvh; }
+  .lane-header { flex-direction: column; align-items: flex-start; }
+  .lane-work-row { flex-wrap: wrap; gap: 12px; }
+  .lane-work-row > div { flex-basis: calc(100% - 150px); }
+  .lane-owner { flex: 1; }
+  .lane-guide-grid, .lane-company dl { grid-template-columns: 1fr; }
+  .lane-panel-heading { flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion: reduce) { .ops-sidebar .ops-navigation a { transition: none; } }

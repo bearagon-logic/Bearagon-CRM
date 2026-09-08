@@ -1,12 +1,15 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/app-shell";
+import { useSearchParams } from "next/navigation";
 
 type Approval = { id:string; clientId:string; clientName:string; type:string; title:string; summary:string; riskLevel:string; status:string; requestedBy:string; decidedBy:string; decidedAt:string; createdAt:string };
 type ApprovalPayload = { error?:string; approval?:Approval; approvals?:Approval[] };
 const filters = ["Pending", "Approved", "Rejected", "All"];
 
 export default function ApprovalsPage(){
+  const searchParams = useSearchParams();
+  const requestedId = searchParams.get("request");
   const [items,setItems]=useState<Approval[]>([]),[selected,setSelected]=useState<Approval|null>(null),[filter,setFilter]=useState("Pending"),[loading,setLoading]=useState(true),[message,setMessage]=useState("");
   async function load(){
     setLoading(true);
@@ -16,11 +19,11 @@ export default function ApprovalsPage(){
     let cancelled=false;
     fetch("/api/approvals")
       .then(async(response)=>{const data=await response.json() as ApprovalPayload;if(!response.ok)throw new Error(data.error);return data.approvals||[]})
-      .then((approvals)=>{if(cancelled)return;setItems(approvals);setSelected(approvals[0]||null)})
+      .then((approvals)=>{if(cancelled)return;setItems(approvals);setSelected(approvals.find((item:Approval)=>item.id===requestedId)||approvals[0]||null);if(requestedId)setFilter("All")})
       .catch((error)=>{if(!cancelled)setMessage(error instanceof Error?error.message:"Unable to load approvals")})
       .finally(()=>{if(!cancelled)setLoading(false)});
     return()=>{cancelled=true};
-  },[]);
+  },[requestedId]);
   const visible=useMemo(()=>items.filter(item=>filter==="All"||item.status===filter),[items,filter]);
   useEffect(()=>{setSelected((current)=>current&&visible.some((item)=>item.id===current.id)?current:visible[0]||null)},[visible]);
   async function decide(status:"Approved"|"Rejected"){

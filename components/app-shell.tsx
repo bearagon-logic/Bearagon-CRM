@@ -5,17 +5,19 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   Bot,
+  BookOpen,
+  ListTodo,
   Building2,
   ChevronRight,
   ClipboardCheck,
   Menu,
-  MessageSquare,
   Plus,
   Plug,
   ShieldCheck,
   X,
   Zap,
 } from "lucide-react";
+import { workspaceDestination } from "@/lib/workspace-model";
 
 type NavItem = {
   href: string;
@@ -25,10 +27,11 @@ type NavItem = {
 };
 
 const workspaceItems: NavItem[] = [
-  { href: "/", label: "Accounts", icon: Building2, exact: true },
-  { href: "/automations", label: "Automations", icon: Zap },
-  { href: "/approvals", label: "Approvals", icon: ClipboardCheck },
-  { href: "/communications", label: "Inbox", icon: MessageSquare },
+  { href: "/", label: "Work queue", icon: ListTodo, exact: true },
+  { href: "/companies", label: "Companies", icon: Building2 },
+  { href: "/onboarding", label: "Onboarding", icon: ClipboardCheck },
+  { href: "/operations", label: "Operations", icon: Zap },
+  { href: "/playbooks", label: "Playbooks", icon: BookOpen },
 ];
 
 const systemItems: NavItem[] = [
@@ -38,7 +41,7 @@ const systemItems: NavItem[] = [
 ];
 
 function isCurrent(pathname: string, item: NavItem) {
-  if (item.exact) return pathname === "/" || pathname.startsWith("/accounts/") || pathname.startsWith("/clients/");
+  if (item.exact) return pathname === "/";
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
 
@@ -54,8 +57,9 @@ function NavLink({ item, pathname, close }: { item: NavItem; pathname: string; c
   );
 }
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({ children, activeSection }: { children: React.ReactNode; activeSection?: string }) {
   const pathname = usePathname();
+  const activePath = activeSection || workspaceDestination(pathname);
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => setMenuOpen(false), [pathname]);
@@ -64,7 +68,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="ops-app-shell">
       <aside className={menuOpen ? "ops-sidebar menu-open" : "ops-sidebar"}>
         <div className="ops-sidebar-top">
-          <Link href="/" className="ops-brand" aria-label="Bearagon Ops accounts">
+          <Link href="/" className="ops-brand" aria-label="Bearagon Ops work queue">
             <img src="/cipher-bearagon.png" alt="Cipher, the Bearagon bear" />
             <span><b>BEARAGON</b><small>OPS</small></span>
           </Link>
@@ -72,10 +76,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {menuOpen ? <X aria-hidden="true" /> : <Menu aria-hidden="true" />}
           </button>
         </div>
-        <Link href="/?newAccount=1" className="ops-add-account" onClick={() => setMenuOpen(false)}><Plus aria-hidden="true" /><span>Add account</span></Link>
+        <Link href="/companies?newAccount=1" className="ops-add-account" onClick={() => setMenuOpen(false)}><Plus aria-hidden="true" /><span>Add company</span></Link>
         <nav className="ops-navigation" aria-label="Operations navigation">
-          <div className="ops-nav-group"><small>WORKSPACE</small>{workspaceItems.map((item) => <NavLink key={item.label} item={item} pathname={pathname} close={() => setMenuOpen(false)} />)}</div>
-          <div className="ops-nav-group ops-nav-system"><small>CONFIGURE</small>{systemItems.map((item) => <NavLink key={item.label} item={item} pathname={pathname} close={() => setMenuOpen(false)} />)}</div>
+          <div className="ops-nav-group"><small>WORKSPACE</small>{workspaceItems.map((item) => <NavLink key={item.label} item={item} pathname={activePath} close={() => setMenuOpen(false)} />)}</div>
+          <div className="ops-nav-group ops-nav-system"><small>RESOURCES & SETTINGS</small>{systemItems.map((item) => <NavLink key={item.label} item={item} pathname={activePath} close={() => setMenuOpen(false)} />)}</div>
         </nav>
         <div className="ops-sidebar-footer"><span className="ops-operator-avatar">BO</span><span><b>Bearagon operator</b><small>Authenticated access</small></span></div>
       </aside>

@@ -20,16 +20,17 @@ export default function SecurityCenter() {
   const [gmailConnected, setGmailConnected] = useState(true);
   return <AppShell><main className="security-page">
     <section className="security-hero">
-      <div><small>SECURITY & PERMISSIONS</small><h1>Every action stays inside its guardrails.</h1><p>Review access, approval rules, and activity from one place.</p></div>
+      <div><small>SECURITY & PERMISSIONS</small><h1>Security reference</h1><p>Our standards for careful, permission-aware automation.</p></div>
       <button className={paused ? "resume-all" : "pause-all"} onClick={() => setPaused(!paused)}>{paused ? "Clear demo pause" : "Preview pause control"}</button>
     </section>
     {paused && <div className="security-paused"><b>Demo pause state enabled.</b><span>This page has not sent a runtime pause command. Use the Automation workspace to record a pause request and wait for harness acknowledgement.</span></div>}
+    <p className="security-reference"><b>Reference page—not live security monitoring.</b> Connections, permissions, activity and controls below are illustrative examples. They do not inspect providers, revoke access or pause a running automation. Check actual configuration in Connections and each company’s Services page.</p>
     <div className="security-content">
       <section className="security-metrics">
-        <article><small>SECURITY POSTURE</small><strong>Protected</strong><span>Owner-only access</span></article>
-        <article><small>CONNECTED APPS</small><strong>{gmailConnected ? "1" : "0"}</strong><span>Minimum permissions</span></article>
-        <article><small>AUTOMATIC SENDING</small><strong>Off</strong><span>Draft-only policy</span></article>
-        <article><small>OPEN WARNINGS</small><strong>0</strong><span>No action required</span></article>
+        <article><small>SECURITY POSTURE</small><strong>Not assessed</strong><span>Reference only</span></article>
+        <article><small>EXAMPLE CONNECTIONS</small><strong>{gmailConnected ? "1" : "0"}</strong><span>Illustrative, not detected</span></article>
+        <article><small>SENDING POLICY</small><strong>Draft first</strong><span>Confirm per implementation</span></article>
+        <article><small>LIVE WARNINGS</small><strong>Not monitored</strong><span>No live security feed here</span></article>
       </section>
       <section className="security-grid" id="permissions">
         <article className="security-card permissions-panel">
@@ -48,7 +49,7 @@ export default function SecurityCenter() {
           </div> : <div className="security-empty"><b>Google Workspace demo disconnected</b><span>No Gmail permissions are shown as active.</span><a href="/connections">Return to Connections</a></div>}
         </article>
         <aside className="security-card protection-panel">
-          <small>CORE PROTECTIONS</small><h2>Always enforced</h2>
+          <small>CORE PROTECTIONS</small><h2>Implementation standards</h2>
           <div className="protection-item"><i>01</i><span><b>Minimum access</b><small>Every app receives only the scopes its workflow requires.</small></span></div>
           <div className="protection-item"><i>02</i><span><b>Human approval</b><small>High-impact actions stop until an authorized person approves.</small></span></div>
           <div className="protection-item"><i>03</i><span><b>Activity history</b><small>Tests, approvals, and configuration changes are recorded.</small></span></div>

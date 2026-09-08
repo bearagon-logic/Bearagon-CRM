@@ -1,6 +1,5 @@
-import { AppShell } from "@/components/app-shell";
-import { OnboardingWorkspace } from "@/components/onboarding-workspace";
+import { redirect } from "next/navigation";
 
 export default function AccountDeliveryPage() {
-  return <AppShell><OnboardingWorkspace /></AppShell>;
+  redirect("/onboarding");
 }

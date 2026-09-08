@@ -1,6 +1,8 @@
 "use client";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { OwnerSelect } from "@/components/owner-select";
 import { Inbox, Plus, Search, ArrowUpRight } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { IntakeFeeds } from "@/components/intake-feeds";
@@ -17,6 +19,8 @@ function today() { const d = new Date(); return `${d.getFullYear()}-${String(d.g
 async function read(response: Response) { const data = await response.json() as { inquiries?: Inquiry[]; clients?: Account[]; error?: string; inquiry?: Inquiry; contactReused?: boolean }; if (!response.ok) throw new Error(data.error || "Unable to load records."); return data; }
 
 export default function Communications() {
+  const searchParams = useSearchParams();
+  const requestedInquiry = searchParams.get("inquiry");
   const [items, setItems] = useState<Inquiry[]>([]), [accounts, setAccounts] = useState<Account[]>([]);
   const [selected, setSelected] = useState<Inquiry | null>(null), [filter, setFilter] = useState("open"), [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true), [saving, setSaving] = useState(false), [error, setError] = useState(""), [notice, setNotice] = useState("");
@@ -28,7 +32,7 @@ export default function Communications() {
     setItems(next); setAccounts((directory.clients || []).filter((a) => a.organizationKind !== "internal"));
     if (selectId) setSelected(next.find((i) => i.id === selectId) || null);
   }
-  useEffect(() => { refresh().catch((e) => setError(e.message)).finally(() => setLoading(false)); }, []);
+  useEffect(() => { refresh(requestedInquiry || undefined).catch((e) => setError(e.message)).finally(() => setLoading(false)); if (requestedInquiry) setFilter("all"); }, [requestedInquiry]);
   const visible = useMemo(() => items.filter((i) =>
     (filter === "all" || (filter === "open" ? i.status !== "closed" : filter === "overdue" ? i.status !== "closed" && !!i.followUpDate && i.followUpDate < today() : i.status === filter))
     && [i.companyName, i.contactName, i.summary, i.owner].some((v) => v.toLowerCase().includes(query.toLowerCase()))), [items, filter, query]);
@@ -67,7 +71,7 @@ export default function Communications() {
         <section className="intake-detail" aria-label="Inquiry details">{selected ? <form onSubmit={save}>
           <div className="intake-detail-heading"><small>{selected.source} · {selected.createdAt.slice(0, 10)}</small><h2>{selected.companyName}</h2><Link href={`/clients/${selected.accountId}`}>Open account <ArrowUpRight aria-hidden="true"/></Link></div>
           <p><b>{selected.contactName}</b><br/>{selected.email || "No email recorded"}<br/>{selected.phone || "No phone recorded"}</p><blockquote className="intake-message">{selected.summary}</blockquote>
-          <div className="form-grid"><label>Status<select value={selected.status} onChange={(e) => setSelected({ ...selected, status: e.target.value })}>{states.map((s) => <option key={s} value={s}>{s[0].toUpperCase() + s.slice(1)}</option>)}</select></label><label>Owner<Input value={selected.owner} placeholder="Employee name or email" onChange={(e) => setSelected({ ...selected, owner: e.target.value })}/></label><label>Next action<Input maxLength={500} value={selected.nextAction} onChange={(e) => setSelected({ ...selected, nextAction: e.target.value })}/></label><label>Follow-up date<Input type="date" value={selected.followUpDate} onChange={(e) => setSelected({ ...selected, followUpDate: e.target.value })}/></label><label className="intake-wide">Resolution / handoff note<Textarea required={selected.status === "closed"} value={selected.resolution} maxLength={2000} placeholder="Record the outcome or handoff. Required to close." onChange={(e) => setSelected({ ...selected, resolution: e.target.value })}/></label></div>
+          <div className="form-grid"><label>Status<select value={selected.status} onChange={(e) => setSelected({ ...selected, status: e.target.value })}>{states.map((s) => <option key={s} value={s}>{s[0].toUpperCase() + s.slice(1)}</option>)}</select></label><label>Owner<OwnerSelect value={selected.owner} onChange={(value) => setSelected({ ...selected, owner: value })}/></label><label>Next action<Input maxLength={500} value={selected.nextAction} onChange={(e) => setSelected({ ...selected, nextAction: e.target.value })}/></label><label>Follow-up date<Input type="date" value={selected.followUpDate} onChange={(e) => setSelected({ ...selected, followUpDate: e.target.value })}/></label><label className="intake-wide">Resolution / handoff note<Textarea required={selected.status === "closed"} value={selected.resolution} maxLength={2000} placeholder="Record the outcome or handoff. Required to close." onChange={(e) => setSelected({ ...selected, resolution: e.target.value })}/></label></div>
           <div className="intake-save"><span>Recorded by {selected.recordedBy}</span><Button disabled={saving} type="submit">{saving ? "Saving…" : "Save follow-up"}</Button></div>
         </form> : <div className="intake-empty"><h2>Select an inquiry</h2><p>Review the message, assign an owner, and plan the next conversation.</p></div>}</section>
       </div>
