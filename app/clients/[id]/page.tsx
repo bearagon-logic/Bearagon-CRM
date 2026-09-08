@@ -25,6 +25,7 @@ type Client = {
 };
 type Task = {
   id: string;
+  templateKey?: string;
   title: string;
   description: string;
   status: "pending" | "in_progress" | "blocked" | "completed" | "skipped";
@@ -112,6 +113,10 @@ export default function ClientDetail() {
     router.replace(next === "Overview" ? `/clients/${id}` : `/clients/${id}?tab=${next.toLowerCase()}`, { scroll: false });
   }
   function editTask(task: Task) {
+    if (task.templateKey?.startsWith("scope:")) {
+      router.push(`/clients/${id}/scope?step=setup`);
+      return;
+    }
     setSelectedTask(task);
     setTaskDraft({ status: task.status, evidenceRef: task.evidenceRef || "", completionNote: task.completionNote || "", blockedReason: task.blockedReason || "" });
   }
@@ -427,10 +432,11 @@ export default function ClientDetail() {
         </aside>
       </div>}
       {tab === "Onboarding" && <section className="client-section client-onboarding-section">
+        <div className="security-reference"><Link href={`/clients/${id}/scope?step=setup`}>Open guided setup & service work orders →</Link><p>Package work orders are maintained in guided setup. The existing requirements below remain part of launch review.</p></div>
         <div className="client-section-heading"><div><small>DELIVERY PLAN</small><h2>{client.companyName} onboarding</h2><p>Use the checklist as the source of truth for readiness. Update stage and next action as work changes.</p></div><span>{tasks.length ? `${complete}/${tasks.length} complete` : "Not started"}</span></div>
         {client.stage === "Not started" ? <article className="client-control-card"><h3>Delivery has not started</h3><p>This relationship is recorded without an onboarding engagement. Start onboarding when implementation is ready.</p><button className="safe-client-action" onClick={startOnboarding} disabled={saving}>{saving ? "Starting…" : "Start onboarding"}</button></article> : <div className="detail-content client-onboarding-grid"><section className="detail-main"><article className="detail-card progress-card"><div className="card-title"><div><small>CHECKLIST PROGRESS</small><h2>{percent}% complete</h2></div><strong>{complete}/{tasks.length}</strong></div><div className="big-progress"><i style={{ width: percent + "%" }} /></div><p>{client.onboardingStatus === "completed" ? "This onboarding is complete and no longer appears in the active delivery queue." : percent === 100 ? "All requirements are in a terminal state. Move to Live, then complete onboarding." : "Open each requirement to document evidence, exceptions, or blockers."}</p></article><article className="detail-card"><div className="card-title"><div><small>REQUIRED WORK</small><h2>Onboarding requirements</h2></div></div><div className="task-plan-list">{tasks.map((task) => <button type="button" className={`task-plan-row ${task.status}`} key={task.id} onClick={() => editTask(task)} disabled={client.onboardingStatus === "completed"}><span><b>{task.title}</b><small>{task.description || "Document the requirement before marking it complete."}</small>{task.evidenceRef && <small>Evidence: {task.evidenceRef}</small>}{task.blockedReason && <small>Blocked: {task.blockedReason}</small>}</span><em>{task.status.replaceAll("_", " ")}</em></button>)}</div></article></section><aside className="detail-side"><article className="detail-card"><small>CURRENT STAGE</small><select value={client.stage} onChange={(event) => setClient({ ...client, stage: event.target.value })} disabled={client.onboardingStatus === "completed"}>{stages.map((item) => <option key={item}>{item}</option>)}</select><small>NEXT ACTION</small><input value={client.nextStep} onChange={(event) => setClient({ ...client, nextStep: event.target.value })} placeholder="What should happen next?" disabled={client.onboardingStatus === "completed"}/><small>TARGET DATE</small><Input type="date" value={client.dueDate} onChange={(event) => setClient({ ...client, dueDate: event.target.value })} disabled={client.onboardingStatus === "completed"}/><button className="safe-client-action" onClick={save} disabled={saving || client.onboardingStatus === "completed"}>{saving ? "Saving…" : "Save delivery plan"}</button>{client.onboardingStatus === "completed" ? <p>Onboarding completed.</p> : <button className="safe-client-action" onClick={completeOnboarding} disabled={saving || client.stage !== "Live" || tasks.some((task) => !["completed", "skipped"].includes(task.status))}>Complete onboarding</button>}<p className="client-control-message">{message}</p></article></aside></div>}
       </section>}
-      {tab === "Automations" && <AccountServices accountId={id} companyName={client.companyName} />}
+      {tab === "Automations" && <><div className="security-reference"><Link href={`/clients/${id}/scope`}>Establish service package, pricing & quote →</Link><p>Accepted packages create service records here. Existing services remain unchanged.</p></div><AccountServices accountId={id} companyName={client.companyName} /></>}
       {tab === "Activity" && <section className="client-section">
         <div className="client-section-heading"><div><small>OPERATOR AUDIT TRAIL</small><h2>{client.companyName} activity</h2><p>Configuration intent and authenticated human decisions are recorded separately from runtime telemetry.</p></div><span>Account record</span></div>
         {activity.length ? <article className="client-control-card client-timeline">{activity.map((event) => <div key={event.id}><i/><span><b>{event.action.replaceAll("_", " ").replaceAll(".", " · ")}</b><small>{event.actorName} · {event.result} · {new Date(event.createdAt).toLocaleString()}</small>{event.detail && <small>{event.detail}</small>}</span></div>)}</article> : <article className="client-control-card"><p>No operator activity has been recorded for this account.</p></article>}

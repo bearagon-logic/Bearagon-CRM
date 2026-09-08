@@ -1,5 +1,5 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
-import { getDb } from "../../../../../db";
+import { getDb, getRawDb } from "../../../../../db";
 import { accounts, accountServices, automationInstallations, serviceInstallations, operatorAuditEvents } from "../../../../../db/schema";
 import { newId } from "../../../../../lib/ops-domain.mjs";
 import { serviceInput } from "../../../../../lib/service-input";
@@ -30,6 +30,11 @@ async function save(request: Request, { params }: Context) {
   const [existing] = await db.select().from(accountServices).where(and(eq(accountServices.id, id), eq(accountServices.accountId, accountId))).limit(1);
   if (request.method === "PATCH" && !existing) return Response.json({ error: "Service not found for this account." }, { status: 404 });
   const { installationIds, ...fields } = parsed.data;
+  if (existing) {
+    const managed = await getRawDb().prepare("SELECT 1 AS found FROM account_proposals p,json_each(p.state,'$.orders') o WHERE p.account_id=? AND json_extract(o.value,'$.serviceId')=? LIMIT 1").bind(accountId,id).first();
+    const frozen = ['name','scope','configuration','quoteRef','acceptedAt','monthlyFeeCents','setupFeeCents','currency'] as const;
+    if (managed && frozen.some(key => fields[key] !== existing[key])) return Response.json({error:"These services belong to an accepted package. Commercial terms are read-only; a separately agreed amendment is required."},{status:409});
+  }
   const ids = [...new Set(installationIds)];
   if (ids.length) {
     const installations = await db.select({ id: automationInstallations.id }).from(automationInstallations).where(and(eq(automationInstallations.accountId, accountId), inArray(automationInstallations.id, ids)));

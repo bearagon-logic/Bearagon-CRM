@@ -78,6 +78,13 @@
       "when": 1788724353908,
       "tag": "0010_past_lord_tyger",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1788901164091,
+      "tag": "0011_striped_justice",
+      "breakpoints": true
     }
   ]
 }

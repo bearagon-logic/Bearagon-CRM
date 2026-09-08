@@ -15,6 +15,7 @@ const migrationFiles = [
   "0008_uneven_thanos.sql",
   "0009_nappy_black_crow.sql",
   "0010_past_lord_tyger.sql",
+  "0011_striped_justice.sql",
 ];
 
 async function freshDatabase() {
@@ -50,6 +51,8 @@ test("the complete migration chain creates the canonical Ops domain", async () =
     "account_services",
     "service_installations",
     "inquiries",
+    "account_proposals",
+    "proposal_revisions",
   ]) {
     assert.ok(tables.includes(table), `${table} should exist`);
   }
@@ -59,10 +62,10 @@ test("the complete migration chain creates the canonical Ops domain", async () =
 test("intake migration preserves populated accounts, contacts and their associations", async () => {
   const db = new DatabaseSync(":memory:");
   db.exec("PRAGMA foreign_keys = ON");
-  for (const file of migrationFiles.slice(0, -1)) db.exec(await readFile(new URL(`../drizzle/${file}`, import.meta.url), "utf8"));
+  for (const file of migrationFiles.slice(0, migrationFiles.indexOf("0010_past_lord_tyger.sql"))) db.exec(await readFile(new URL(`../drizzle/${file}`, import.meta.url), "utf8"));
   db.exec("INSERT INTO accounts(id,name,notes) VALUES('existing','Existing','Preserve me'); INSERT INTO contacts(id,display_name,email_normalized) VALUES('contact','Contact','one@example.com'); INSERT INTO account_contacts(account_id,contact_id,is_primary) VALUES('existing','contact',1)");
   const triggers = db.prepare("SELECT name FROM sqlite_schema WHERE type='trigger' ORDER BY name").all();
-  db.exec(await readFile(new URL(`../drizzle/${migrationFiles.at(-1)}`, import.meta.url), "utf8"));
+  db.exec(await readFile(new URL("../drizzle/0010_past_lord_tyger.sql", import.meta.url), "utf8"));
   assert.equal(db.prepare("SELECT notes FROM accounts WHERE id='existing'").get().notes, "Preserve me");
   assert.equal(db.prepare("SELECT count(*) n FROM account_contacts").get().n, 1);
   assert.equal(db.prepare("SELECT marketing_status FROM contacts").get().marketing_status, "unknown");

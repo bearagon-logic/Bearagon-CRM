@@ -382,6 +382,9 @@ export async function PATCH(
       if (!task) {
         return Response.json({ error: "Task not found." }, { status: 404 });
       }
+      if (task.templateKey.startsWith("scope:")) {
+        return Response.json({ error: "Use Guided setup to update this work order, so evidence stays tied to the current setup revision." }, { status: 409 });
+      }
       if (!activeEngagementStatuses.includes(task.engagementStatus)) {
         return Response.json(
           { error: "This onboarding is closed and its tasks can no longer be changed." },

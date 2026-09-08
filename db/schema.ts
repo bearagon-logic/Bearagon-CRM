@@ -503,6 +503,26 @@ export const accountServices = sqliteTable("account_services", {
   check("account_services_fees", sql`(${table.setupFeeCents} is null or ${table.setupFeeCents} >= 0) and (${table.monthlyFeeCents} is null or ${table.monthlyFeeCents} >= 0)`),
 ]);
 
+// A current aggregate with an optimistic version, plus immutable audit snapshots.
+// Accepted commercial scope stays frozen; setup/evidence can advance independently.
+export const accountProposals = sqliteTable("account_proposals", {
+  accountId: text("account_id").primaryKey().references(() => accounts.id, { onDelete: "restrict" }),
+  version: integer("version").notNull(),
+  mutationId: text("mutation_id").notNull(),
+  state: text("state").notNull(),
+  updatedAt: text("updated_at").notNull(),
+}, t => [check("proposal_version", sql`${t.version} > 0`), check("proposal_json", sql`json_valid(${t.state})`)]);
+
+export const proposalRevisions = sqliteTable("proposal_revisions", {
+  accountId: text("account_id").notNull().references(() => accountProposals.accountId, { onDelete: "restrict" }),
+  version: integer("version").notNull(),
+  state: text("state").notNull(),
+  action: text("action").notNull(),
+  actorId: text("actor_id").notNull(),
+  actorEmail: text("actor_email").notNull(),
+  createdAt: text("created_at").notNull(),
+}, t => [primaryKey({ columns: [t.accountId, t.version] }), check("proposal_revision_json", sql`json_valid(${t.state})`)]);
+
 export const serviceInstallations = sqliteTable("service_installations", {
   serviceId: text("service_id").notNull().references(() => accountServices.id, { onDelete: "cascade" }),
   installationId: text("installation_id").notNull().references(() => automationInstallations.id, { onDelete: "cascade" }),

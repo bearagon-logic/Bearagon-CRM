@@ -15,7 +15,9 @@ See [ADR 0001](docs/architecture/0001-two-surfaces-one-platform.md) for the deci
 
 September 8, 2026: the first real-data adoption slice of the approved Ops concept adds Work queue (`/`), Companies (`/companies`), Onboarding (`/onboarding`), Operations (`/operations`) and read-only Playbooks (`/playbooks`). The queue combines saved inquiries, active delivery and pending decisions; intake sync/review and approvals remain accessible through its shortcuts. Old account bookmarks and delivery links remain compatible. Company detail retains the existing Services and Delivery editors. The original Cipher sidebar artwork is unchanged.
 
-This is not a full concept cutover. Versioned proposals, richer guided setup, revisioned build evidence and the guarded completion milestone still need production persistence. See the canonical handbook's `OPS-PRODUCTION-ROLLOUT.md`. No schema, integration credential, accepted scope or runtime execution changes are part of this navigation release.
+The next production increment adds revisioned scope, customer-style quote previews, authenticated internal approval, recorded external acceptance, guided setup and external work-order evidence. Open a company → Services → Establish service package, pricing & quote. Migration 0011 is additive; existing records are not backfilled. See [implementation and validation](docs/proposal-delivery-2026-09-08.md).
+
+This is not a full concept cutover. The guarded completion presentation and fuller ongoing-service layout remain outstanding. No quote sending, signature collection, billing, automatic deployment or provider spending enforcement is enabled by these screens. See the canonical handbook's `OPS-PRODUCTION-ROLLOUT.md`.
 
 The first production-oriented vertical slice includes:
 

@@ -3,6 +3,7 @@ import "./globals.css";
 import "./ops-ui.css";
 import "./intake-ui.css";
 import "./operating-workspace.css";
+import "./proposal.css";
 
 export const metadata: Metadata = {
   title: {
