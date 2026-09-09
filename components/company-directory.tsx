@@ -60,6 +60,7 @@ export default function AccountsPage() {
   const stage = stages.includes(requestedStage) ? requestedStage : "All clients";
   const query = searchParams.get("q") || "";
   const sales = searchParams.get("sales") || "all";
+  const [relationship,setRelationship]=useState("All relationships");
   const [clients, setClients] = useState<Client[]>([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(blank);
@@ -136,25 +137,25 @@ export default function AccountsPage() {
     finally { setSaving(false); }
   }
   const visible = useMemo(() => clients.filter((client) => (
-    client.organizationKind !== "internal"
+    (relationship==="All relationships"||(relationship==="Internal"?client.organizationKind==="internal":client.organizationKind!=="internal"&&(relationship==="Clients"?client.relationshipType==="client":client.relationshipType!=="client")))
     && (sales === "all" || client.salesStage === sales)
     &&
     (stage === "All clients" || client.stage === stage)
     && [client.companyName, client.contactName, client.email].some((value) => value.toLowerCase().includes(query.toLowerCase()))
-  )), [clients, stage, query, sales]);
+  )), [clients, stage, query, sales, relationship]);
   const active = external.filter((client) => ["planned", "active", "blocked"].includes(client.onboardingStatus)).length;
   const openTasks = external.reduce((sum, client) => sum + client.openTasks, 0);
 
   return (
     <AppShell activeSection="/companies">
-      <section className="workspace ops-accounts-page" id="accounts">
+      <section className="workspace ops-accounts-page concept-directory" id="accounts">
         <header className="ops-header ops-accounts-header">
           <div className="ops-header-copy">
             <small>RELATIONSHIPS</small>
             <h1>Companies</h1>
             <p>Keep the client relationship, delivery status, and next action in one operating record.</p>
           </div>
-          <button className="ops-header-action" type="button" onClick={() => setOpen(true)}>Add account</button>
+          <button className="ops-header-action" type="button" onClick={() => setOpen(true)}>Add company</button>
         </header>
 
 
@@ -163,16 +164,16 @@ export default function AccountsPage() {
           <section className="internal-organization"><div><small>OUR OWN OPERATIONS</small><b>Bearagon</b><span>Internal automation portfolio · separate from the customer pipeline</span></div>{internal ? <Link href={`/clients/${internal.id}?tab=automations`}>Open internal workspace <ArrowUpRight aria-hidden="true" /></Link> : <Button variant="outline" disabled={loading || saving} onClick={openInternalProfile}>{saving ? "Opening…" : "Set up internal profile"}</Button>}</section>
           <section className="panel account-directory" aria-labelledby="accounts-heading">
             <div className="panelhead account-directory-head">
-              <div><small>RELATIONSHIPS</small><h2 id="accounts-heading">External accounts</h2></div>
+              <div><small>RELATIONSHIPS</small><h2 id="accounts-heading">Company directory</h2></div>
               <label className="account-search"><Search aria-hidden="true" /><input value={query} onChange={(event) => setFilter("q", event.target.value)} placeholder="Search accounts or contacts" aria-label="Search accounts or contacts" /></label>
             </div>
-            <div className="account-filter-row">
+            <div className="company-lane-toolbar"><div className="relationship-choices" aria-label="Filter companies">{["All relationships","Prospects","Clients","Internal"].map(v=><button key={v} type="button" aria-pressed={relationship===v} onClick={()=>setRelationship(v)}>{v}</button>)}</div></div><details className="directory-advanced"><summary>More filters</summary><div className="account-filter-row">
               <label className="stage-filter"><span>Relationship stage</span><select value={sales} onChange={(event) => setFilter("sales", event.target.value)}><option value="all">All relationships</option>{["new", "contacted", "qualified", "proposal", "won", "lost", "nurture"].map((s) => <option key={s} value={s}>{s[0].toUpperCase() + s.slice(1)}</option>)}</select></label>
               <label className="stage-filter"><span>Filter by delivery stage</span><select value={stage} onChange={(event) => setFilter("stage", event.target.value)} aria-label="Filter accounts by delivery stage">{stages.map((item) => <option key={item}>{item}</option>)}</select></label>
               <span className="account-count">{loading ? "" : `${visible.length} shown`}</span>
             </div>
-            <div className="rows account-rows">
-              <div className="row labels"><span>ACCOUNT & PRIMARY CONTACT</span><span>RELATIONSHIP</span><span>DELIVERY STATUS</span><span>NEXT ACTION</span><span>TARGET</span></div>
+            </details><div className="rows account-rows">
+              <div className="row labels"><span>COMPANY & CONTACT</span><span>RELATIONSHIP</span><span>CURRENT WORK</span><span>NEXT ACTION</span><span>TARGET</span></div>
               {loading && <p className="empty">Loading accounts…</p>}
               {!loading && visible.map((client) => (
                 <Link className="row client" href={`/clients/${client.id}`} key={client.id}>

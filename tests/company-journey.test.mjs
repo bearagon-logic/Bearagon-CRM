@@ -1,0 +1,16 @@
+import test,{after} from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {createServer} from 'vite';
+import React from 'react';
+import {renderToStaticMarkup} from 'react-dom/server';
+import {fileURLToPath} from 'node:url';
+const root=fileURLToPath(new URL('..',import.meta.url));
+const vite=await createServer({appType:'custom',configFile:false,root,resolve:{alias:{'@':root}},server:{middlewareMode:true,hmr:false}});
+after(()=>vite.close());
+const {companySection,journeyPhase,phaseSection}=await vite.ssrLoadModule('/lib/company-journey.ts');
+test('old bookmarks resolve into the unified company sections',()=>{assert.equal(companySection('onboarding'),'delivery');assert.equal(companySection('automations'),'services');assert.equal(companySection('complete'),'complete');assert.equal(companySection('unknown'),'overview');});
+test('journey uses saved acceptance and answers, never tab selection as progress',()=>{const c={stage:'Not started',onboardingStatus:'not_started'};assert.equal(journeyPhase(c,null),0);assert.equal(journeyPhase(c,{version:1}),1);assert.equal(journeyPhase(c,{version:2,acceptance:{},setup:{answers:['','','']}}),2);assert.equal(journeyPhase(c,{version:3,acceptance:{},setup:{answers:['a','b','c']}}),3);assert.equal(journeyPhase({stage:'Live',onboardingStatus:'active'},null),3);assert.equal(journeyPhase({stage:'Live',onboardingStatus:'completed'},null),4);});
+test('every stage has one company destination; legacy delivery remains accessible',()=>{assert.deepEqual([0,1,2,3,4].map(phaseSection),['overview','services','delivery','delivery','services']);assert.equal(journeyPhase({stage:'Intake',onboardingStatus:'active'},null),2);});
+test('journey renders the five approved labels and accessible current stage',async()=>{const {CompanyJourney}=await vite.ssrLoadModule('/components/company-journey.tsx');const html=renderToStaticMarkup(React.createElement(CompanyJourney,{phase:2,onNavigate:()=>{}}));for(const label of ['Inquiry','Scope','Setup','Build &amp; test','Operate'])assert.ok(html.includes(label));assert.equal((html.match(/aria-current="step"/g)||[]).length,1);});
+test('production page embeds scope and delivery; completion is gated and old route redirects',async()=>{const page=await readFile(new URL('../app/clients/[id]/page.tsx',import.meta.url),'utf8');assert.match(page,/CompanyWorkspace/);assert.doesNotMatch(page,/Onboarding requirements|Open guided setup/);const workspace=await readFile(new URL('../components/company-workspace.tsx',import.meta.url),'utf8');assert.match(workspace,/mode="services"/);assert.match(workspace,/mode="delivery"/);assert.match(workspace,/closed&&client.stage==='Live'/);assert.match(workspace,/completeOnboarding:true/);assert.match(workspace,/cipher-completion.png/);const redirect=await readFile(new URL('../app/clients/[id]/scope/page.tsx',import.meta.url),'utf8');assert.match(redirect,/redirect\(/);assert.doesNotMatch(redirect,/ProposalWorkspace/);});

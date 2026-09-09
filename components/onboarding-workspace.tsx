@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Search, TriangleAlert } from "lucide-react";
+import { Progress } from "./ui/progress";
 
 type Onboarding = {
   id: string;
@@ -60,39 +61,11 @@ export function OnboardingWorkspace() {
   const blocked = items.filter((item) => item.status === "blocked" || item.blocked > 0).length;
   const overdue = items.filter((item) => isOverdue(item.targetDate)).length;
 
-  return <main className="ops-onboarding-page">
-    <header className="ops-onboarding-header">
-      <div><small>DELIVERY WORKSPACE</small><h1>Onboarding</h1><p>Active delivery, blockers, and the next accountable action. Each row opens the company’s saved delivery plan.</p></div>
-      <Link href="/companies" className="ops-header-action">View companies</Link>
-    </header>
-    <div className="ops-onboarding-content">
-      <section className="onboarding-metrics" aria-label="Delivery queue summary">
-        <article><small>ACTIVE ONBOARDINGS</small><strong>{items.length}</strong><span>In delivery now</span></article>
-        <article className={blocked ? "attention" : ""}><small>NEEDS ATTENTION</small><strong>{blocked}</strong><span>Blocked account plans</span></article>
-        <article><small>OPEN TASKS</small><strong>{totalOpen}</strong><span>Across active checklists</span></article>
-        <article className={overdue ? "attention" : ""}><small>PAST TARGET</small><strong>{overdue}</strong><span>Plans to review</span></article>
-      </section>
-      <section className="onboarding-queue-panel" aria-labelledby="onboarding-queue-heading">
-        <div className="onboarding-queue-head"><div><small>ACTIVE DELIVERY</small><h2 id="onboarding-queue-heading">Onboarding queue</h2></div><label className="account-search"><Search aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search onboarding work" aria-label="Search onboarding work" /></label></div>
-        <div className="onboarding-filter-row"><label className="stage-filter"><span>Filter by delivery stage</span><select value={stage} onChange={(event) => setStage(event.target.value)} aria-label="Filter onboarding work by delivery stage">{stages.map((item) => <option key={item}>{item}</option>)}</select></label><span>{loading ? "" : `${visible.length} shown`}</span></div>
-        <div className="onboarding-table">
-          <div className="onboarding-table-labels"><span>ACCOUNT</span><span>STAGE</span><span>CHECKLIST</span><span>NEXT ACTION</span><span>TARGET</span></div>
-          {loading && <p className="onboarding-empty">Loading onboarding work…</p>}
-          {!loading && error && <p className="onboarding-empty">{error}</p>}
-          {!loading && !error && visible.map((item) => {
-            const progress = item.total ? Math.round((item.complete / item.total) * 100) : 0;
-            const attention = item.status === "blocked" || item.blocked > 0 || isOverdue(item.targetDate);
-            return <Link href={`/clients/${item.accountId}?tab=onboarding`} className={attention ? "onboarding-row attention" : "onboarding-row"} key={item.id}>
-              <span className="onboarding-account"><i>{item.accountName.split(" ").filter(Boolean).map((word) => word[0]).join("").slice(0, 3)}</i><span><b>{item.accountName}</b><small>{item.contactName}{item.contactEmail ? ` · ${item.contactEmail}` : ""}</small></span></span>
-              <span><em className={`pill ${item.stage.toLowerCase()}`}>{item.stage}</em></span>
-              <span className="onboarding-progress"><b>{item.complete}/{item.total}</b><i><span style={{ width: `${progress}%` }} /></i><small>{progress}% complete · {item.open} open</small></span>
-              <span className="onboarding-next"><b>{item.nextStep || "Set next action"}</b>{item.blocked > 0 && <small><TriangleAlert aria-hidden="true" /> {item.blocked} blocked task{item.blocked === 1 ? "" : "s"}</small>}</span>
-              <span className={isOverdue(item.targetDate) ? "onboarding-target overdue" : "onboarding-target"}>{targetLabel(item.targetDate)}{isOverdue(item.targetDate) && <small>Review target</small>}</span>
-            </Link>;
-          })}
-          {!loading && !error && !visible.length && <div className="onboarding-empty"><b>{items.length ? "No onboarding work matches this view." : "No active onboarding work."}</b><span>{items.length ? "Try a different delivery stage or search term." : "Start onboarding from a company when delivery is ready."}</span>{!items.length && <Link href="/companies">Open companies</Link>}</div>}
-        </div>
-      </section>
-    </div>
+  return <main className="company-experience">
+    <header className="company-record-header"><div><small className="eyebrow">DELIVERY WORKSPACE</small><h1>Onboarding</h1><p>Accepted engagements, from setup through the final handoff.</p></div><Link href="/companies">View companies →</Link></header>
+    <div className="company-lane-toolbar"><label className="account-search"><Search aria-hidden="true"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search onboarding work" aria-label="Search onboarding work"/></label><label>Delivery stage <select value={stage} onChange={e=>setStage(e.target.value)}>{stages.map(s=><option key={s}>{s}</option>)}</select></label><span>{blocked} need attention · {overdue} past target</span></div>
+    {loading&&<p role="status">Loading onboarding…</p>}{error&&<p role="alert" className="company-error">{error}</p>}
+    <div className="company-lane-cards">{!loading&&!error&&visible.map(item=><article className="company-panel" key={item.id}><div className="panel-heading"><div><small className="eyebrow">CLIENT ONBOARDING</small><h2>{item.accountName}</h2></div><span className="company-status">{item.blocked?'Blocked':['Building','Testing','Live'].includes(item.stage)?'Build & test':'Setup'}</span></div><p className="company-help">Owner: {item.owner||'Unassigned'} · {item.contactName} · Target: {targetLabel(item.targetDate)}</p><div className="company-lane-progress"><Progress value={item.total?100*item.complete/item.total:0} aria-label={`Saved delivery requirements for ${item.accountName}`}/><span>{item.complete}/{item.total} requirements resolved</span></div>{item.blocked>0&&<p className="company-error"><TriangleAlert size={16}/> {item.blocked} blocked requirements — open delivery for the recorded reasons.</p>}<div className="company-lane-next"><div><small className="eyebrow">NEXT ACTION</small><b>{item.nextStep||'Review saved delivery plan'}</b></div><Link className="company-primary-link" href={`/clients/${item.accountId}?tab=delivery`}>Continue onboarding →</Link></div></article>)}</div>
+    {!loading&&!error&&!visible.length&&<section className="company-panel"><h2>No active onboarding in this view</h2><p>Accepted engagements stay here until the handoff to ongoing service.</p><Link href="/companies">View companies →</Link></section>}
   </main>;
 }

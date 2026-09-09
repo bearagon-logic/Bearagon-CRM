@@ -31,6 +31,15 @@ try {
  assert.equal(proposal.orders[0].status,'to_build');
  assert.equal((await request(`${path}?revision=${evidenceVersion}`)).proposal.orders[0].testRef,'LOCAL test evidence');
  const reopened=await request(`/api/clients/${id}`);assert.equal(reopened.tasks.find(t=>t.id===proposal.orders[0].taskId).status,'pending');
+ // Walk the unified handoff using only this local fixture. No real build or approval occurs.
+ async function patch(body,expected=200){const r=await fetch(`${base}/api/clients/${id}`,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify(body)});const d=await r.json();assert.equal(r.status,expected,JSON.stringify(d));return d;}
+ await patch({completeOnboarding:true},409);
+ ({proposal}=await request(path,{action:'order',expectedVersion:proposal.version,key:'email',status:'tested',buildRef:'LOCAL revalidated build',testRef:'LOCAL revalidated evidence'}));
+ for(const key of ['agreement','discovery','communications','business_system','guardrails','automation_build','client_test','launch']){const t=reopened.tasks.find(t=>t.templateKey===key);assert.ok(t,key);await patch({taskId:t.id,status:'completed',evidenceRef:'LOCAL ONLY fixture evidence',completionNote:'Local verification only'});}
+ await patch({stage:'Live'});await patch({completeOnboarding:true});
+ assert.equal((await request(`/api/clients/${id}`)).client.onboardingStatus,'completed');
+ await patch({completeOnboarding:true},409);
+ await request(path,{action:'setup',expectedVersion:proposal.version,answers:['Blocked edit','Fixture systems','Fixture authority'],confirmReset:true},409);
  assert.equal((await request(path)).proposal.setup.answers[0],'Revised outcome');
  await request(`${path}?revision=9999`,undefined,404);
  await request('/api/clients/not-a-real-company/proposal',undefined,404);

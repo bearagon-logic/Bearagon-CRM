@@ -1,5 +1,5 @@
-import { ProposalWorkspace } from '@/components/proposal-workspace';
-export default async function ScopePage({params}:{params:Promise<{id:string}>}) {
+import { redirect } from 'next/navigation';
+export default async function ScopePage({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{step?:string}>}) {
   const {id}=await params;
-  return <ProposalWorkspace accountId={id}/>;
+  redirect(`/clients/${id}?tab=${(await searchParams).step==='setup'?'delivery':'services'}`);
 }

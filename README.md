@@ -13,6 +13,8 @@ See [ADR 0001](docs/architecture/0001-two-surfaces-one-platform.md) for the deci
 
 ## Current milestone
 
+September 8 company-experience correction: the refined concept now defines the main company frontend, with the five-stage journey and embedded Services/Delivery, retained setup edits, work evidence and guarded completion handoff. The old checklist-first company page has been replaced. See [scope and validation](docs/company-experience-2026-09-08.md). Prior milestone notes below remain historical implementation context.
+
 September 8, 2026: the first real-data adoption slice of the approved Ops concept adds Work queue (`/`), Companies (`/companies`), Onboarding (`/onboarding`), Operations (`/operations`) and read-only Playbooks (`/playbooks`). The queue combines saved inquiries, active delivery and pending decisions; intake sync/review and approvals remain accessible through its shortcuts. Old account bookmarks and delivery links remain compatible. Company detail retains the existing Services and Delivery editors. The original Cipher sidebar artwork is unchanged.
 
 The next production increment adds revisioned scope, customer-style quote previews, authenticated internal approval, recorded external acceptance, guided setup and external work-order evidence. Open a company → Services → Establish service package, pricing & quote. Migration 0011 is additive; existing records are not backfilled. See [implementation and validation](docs/proposal-delivery-2026-09-08.md).
