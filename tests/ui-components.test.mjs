@@ -93,6 +93,23 @@ test("Ember selection tokens retain readable white text throughout the gloss", a
   assert.doesNotMatch(interaction, /#348c80|#247568|#13594f|#206e61/);
 });
 
+test("sidebar decoration is bottom anchored, fades upward and cannot intercept navigation", async () => {
+  const source = await readFile(path.join(root, 'app/interaction-theme.css'), 'utf8');
+  const css = await readCssTree(path.join(root, 'dist'));
+  assert.match(source, /\.ops-sidebar \{ isolation: isolate; \}/);
+  const decoration = source.match(/\.ops-sidebar::before \{([^}]+)\}/)[1];
+  assert.match(decoration, /inset: auto 0 0/);
+  assert.match(decoration, /pointer-events: none/);
+  assert.match(decoration, /z-index: -1/);
+  assert.match(decoration, /bearagon-ops-header\.webp/);
+  assert.match(decoration, /mask-image: linear-gradient\(to top, #000 0%, #000 18%, #0009 52%, transparent 100%\)/);
+  assert.match(source, /@media \(max-width: 780px\) \{\s*\.ops-sidebar::before \{ display: none/);
+  assert.match(source, /@media \(forced-colors: active\)/);
+  // The CSS optimizer reverses an upward gradient into equivalent downward stops.
+  assert.ok(css.includes('mask-image:linear-gradient(#0000 0%,#0009 48%,#000 82% 100%)'), 'Compiled fade remains transparent at top and opaque at bottom');
+  assert.ok((await readFile(path.join(root, 'public/bearagon-ops-header.webp'))).length > 0);
+});
+
 test("emits chart themes for the starter's media dark mode", async () => {
   const { ChartStyle } = await vite.ssrLoadModule("/components/ui/chart.tsx");
   const html = renderToStaticMarkup(
