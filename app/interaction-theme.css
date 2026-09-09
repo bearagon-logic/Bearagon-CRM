@@ -123,7 +123,20 @@
   box-shadow: 0 4px 16px #123d5808;
 }
 .proposal-action-next { display: flex; flex-wrap: wrap; gap: 12px; margin-left: auto; }
-.evidence-dialog { max-height: 90dvh; overflow-y: auto; }
+/* Portalled modals must cover the sticky sidebar (z-index: 60), including
+   its scrim. Keep the existing viewport-centered Radix positioning. */
+:is([data-slot='dialog-overlay'], [data-slot='alert-dialog-overlay']) { z-index: 80; }
+:is([data-slot='dialog-content'], [data-slot='alert-dialog-content']) {
+  z-index: 90;
+  max-width: calc(100vw - 32px) !important;
+  max-height: calc(100dvh - 32px);
+  min-width: 0;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+}
+/* These controls can themselves be portalled from inside a modal. */
+:is([data-slot='select-content'], [data-slot='popover-content'], [data-slot='dropdown-menu-content']) { z-index: 100; }
+.evidence-dialog { max-height: calc(100dvh - 32px); overflow-y: auto; }
 .evidence-fields { display: grid; gap: 12px; min-width: 0; }
 .evidence-fields label { font-weight: 650; }
 .evidence-fields textarea { font-size: 1rem; }

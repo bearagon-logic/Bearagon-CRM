@@ -46,6 +46,17 @@ test("emits the Ops automation and responsive workspace styles", async () => {
   assert.match(css, /@media\s*\(width<=780px\)/);
 });
 
+test("modal layers cover navigation and keep narrow-window gutters", async () => {
+  const css = await readCssTree(path.join(root, "dist"));
+  const interaction = await readFile(path.join(root, 'app/interaction-theme.css'), 'utf8');
+  assert.match(interaction, /dialog-overlay'[\s\S]*?z-index: 80/);
+  assert.match(interaction, /dialog-content'[\s\S]*?z-index: 90/);
+  assert.match(interaction, /select-content'[\s\S]*?z-index: 100/);
+  assert.match(css, /max-width:calc\(100vw - 32px\)!important/);
+  assert.match(css, /max-height:calc\(100dvh - 32px\)/);
+  assert.match(css, /z-index:90/);
+});
+
 test("forwards progress semantics to the primitive", async () => {
   const { Progress } = await vite.ssrLoadModule("/components/ui/progress.tsx");
   const html = renderToStaticMarkup(React.createElement(Progress, { value: 37 }));
