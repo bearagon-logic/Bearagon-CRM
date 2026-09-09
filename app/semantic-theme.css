@@ -1,4 +1,14 @@
 /* Loaded in the same Tailwind compilation unit as the utility classes. */
+/* Brand emphasis, not a warning/error or runtime-health status. */
+:root {
+  --brand-ember: #b84323;
+  --brand-ember-highlight: #c44e27;
+  --brand-ember-deep: #a9381b;
+  --brand-ember-end: #b34220;
+  --brand-ember-edge: #803019;
+  --brand-ember-soft: #fff0e8;
+  --brand-ember-foreground: #ffffff;
+}
 @theme inline {
   --color-background: #ffffff;
   --color-foreground: #17324d;

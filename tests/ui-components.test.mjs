@@ -71,6 +71,28 @@ test("ships visible action variants and tactile service choices", async () => {
   }
 });
 
+test("Ember selection tokens retain readable white text throughout the gloss", async () => {
+  const theme = await readFile(path.join(root, 'app/semantic-theme.css'), 'utf8');
+  const interaction = await readFile(path.join(root, 'app/interaction-theme.css'), 'utf8');
+  const css = await readCssTree(path.join(root, 'dist'));
+  const rgb = hex => hex.match(/\w\w/g).map(part => parseInt(part, 16) / 255);
+  const luminance = values => values.map(v => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4).reduce((sum, v, i) => sum + v * [.2126, .7152, .0722][i], 0);
+  const token = name => theme.match(new RegExp(`--brand-ember${name}: #(\\w{6})`))[1];
+  const stops = ['-highlight', '', '-deep', '-end'].map(name => rgb(token(name)));
+  for (let i = 1; i < stops.length; i++) {
+    for (let t = 0; t <= 100; t++) {
+      const point = stops[i - 1].map((v, c) => v + (stops[i][c] - v) * t / 100);
+      assert.ok(1.05 / (luminance(point) + .05) >= 4.5, 'White label contrast across gradient');
+    }
+  }
+  const soft = luminance(rgb(token('-soft'))), ink = luminance(rgb(token('')));
+  assert.ok((soft + .05) / (ink + .05) >= 4.5, 'Ember text on pale accent surface');
+  assert.match(css, /--brand-ember:#b84323/);
+  assert.match(interaction, /service-inclusion-toggle\[aria-pressed='true'\]/);
+  assert.match(interaction, /service-inclusion-toggle:not\(:disabled\):hover \{ filter: none/);
+  assert.doesNotMatch(interaction, /#348c80|#247568|#13594f|#206e61/);
+});
+
 test("emits chart themes for the starter's media dark mode", async () => {
   const { ChartStyle } = await vite.ssrLoadModule("/components/ui/chart.tsx");
   const html = renderToStaticMarkup(
