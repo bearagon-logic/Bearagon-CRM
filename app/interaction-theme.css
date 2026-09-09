@@ -94,6 +94,12 @@
   box-shadow: 0 4px 16px #123d5808;
 }
 .proposal-action-next { display: flex; flex-wrap: wrap; gap: 12px; margin-left: auto; }
+.evidence-dialog { max-height: 90dvh; overflow-y: auto; }
+.evidence-fields { display: grid; gap: 12px; min-width: 0; }
+.evidence-fields label { font-weight: 650; }
+.evidence-fields textarea { font-size: 1rem; }
+.evidence-fields select { width: 100%; padding: 10px 12px; border: 1px solid #b8cede; border-radius: 8px; background: #fff; font: inherit; }
+.proposal-order .evidence-reference { white-space: pre-wrap; overflow-wrap: anywhere; }
 .company-record-header>div { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
 .company-record-header .record-breadcrumb { flex-wrap: wrap; white-space: normal; }
 .proposal-steps button.selected { background: linear-gradient(#236c92, #174b6b); border-color: #164d6c; font-weight: 700; }

@@ -32,3 +32,53 @@ test('database CAS excludes stale history, audit and duplicate work',async()=>{c
 test('accepted scope and history are immutable; delivery gate rejects missing or stale evidence',async()=>{const {db,sqlite}=await database();let before=newProposal('Fixture Company',false);let s=complete();await persistProposal(db,'account-one',before,s,actor,'save','s1');before=s;s=change(s,{action:'approve'});await persistProposal(db,'account-one',before,s,actor,'approve','s2');before=s;s=change(s,{action:'accept',reference:'Evidence',contact:'Client',date:'2026-09-08'});s=await persistProposal(db,'account-one',before,s,actor,'accept','s3');assert.throws(()=>sqlite.prepare("UPDATE engagements SET stage='live' WHERE id=?").run(s.engagementId),/guided setup/);assert.throws(()=>sqlite.prepare("UPDATE account_proposals SET state=json_set(state,'$.draft.monthly','1') WHERE account_id='account-one'").run(),/immutable/);assert.throws(()=>sqlite.prepare("UPDATE account_services SET monthly_fee_cents=1 WHERE id=?").run(s.orders[0].serviceId),/amendment/);assert.throws(()=>sqlite.exec('DELETE FROM proposal_revisions'),/immutable/);before=s;s=change(s,{action:'setup',answers:['Outcome','Systems','Authority']});await persistProposal(db,'account-one',before,s,actor,'setup','s4');for(const [i,o] of s.orders.entries()){before=s;s=change(s,{action:'order',key:o.key,status:'tested',buildRef:'Build',testRef:'Test report'});await persistProposal(db,'account-one',before,s,actor,'order',`order-${i}`);}sqlite.prepare("UPDATE engagements SET stage='live',status='completed' WHERE id=?").run(s.engagementId);before=s;s=change(s,{action:'setup',answers:['New','Systems','Authority'],confirmReset:true});await assert.rejects(()=>persistProposal(db,'account-one',before,s,actor,'setup','closed'),/read-only/);assert.equal((await readProposal(db,'account-one')).setup.revision,1);sqlite.close();});
 test('a failed dependent insert rolls back the proposal, history and audit',async()=>{const {db,sqlite}=await database();const empty=newProposal('Fixture Company',false);let s=complete();await persistProposal(db,'account-one',empty,s,actor,'save','first');const approved=change(s,{action:'approve'});await persistProposal(db,'account-one',s,approved,actor,'approve','second');const next=change(approved,{action:'accept',contact:'Client',date:'2026-09-08',reference:'Evidence'});next.orders[1].taskId=next.orders[0].taskId;await assert.rejects(()=>persistProposal(db,'account-one',approved,next,actor,'accept','fail'));assert.equal((await readProposal(db,'account-one')).acceptance,null);assert.equal(sqlite.prepare('SELECT count(*) n FROM account_services').get().n,0);assert.equal(sqlite.prepare('SELECT count(*) n FROM proposal_revisions').get().n,2);sqlite.close();});
 test('quote rendering uses the original mark and omits internal cost attribution',async()=>{const {CustomerQuote}=await vite.ssrLoadModule('/components/customer-quote.tsx');const s=complete();s.draft.allocation='PRIVATE LEDGER RULE';const html=renderToStaticMarkup(React.createElement(CustomerQuote,{company:'Fixture Company',draft:s.draft,reference:'TEST',revision:1,status:'Draft'}));assert.ok(html.includes('/cipher-bearagon.png'));assert.ok(html.includes('$2,000.00'));assert.ok(!html.includes('PRIVATE LEDGER RULE'));assert.ok(!html.includes('PROTOTYPE'));assert.ok(html.includes('INTERNAL QUOTE PREVIEW'));});
+
+test('evidence corrections preserve other fields and modules and reject stale saves',()=>{
+  let s=change(accepted(),{action:'setup',answers:['Outcome','Systems','Authority']});
+  s=change(s,{action:'order',key:'email',status:'tested',buildRef:'Build 42',testRef:'Report with typo'});
+  const original=structuredClone(s), email=s.orders.find(o=>o.key==='email');
+  const updated=change(s,{action:'order',...email,testRef:'Correct report'});
+  assert.equal(updated.orders.find(o=>o.key==='email').buildRef,'Build 42');
+  assert.equal(updated.orders.find(o=>o.key==='email').testRef,'Correct report');
+  assert.equal(updated.orders.find(o=>o.key==='email').status,'tested');
+  assert.deepEqual(updated.orders.filter(o=>o.key!=='email'),original.orders.filter(o=>o.key!=='email'));
+  assert.deepEqual(updated.setup,original.setup);
+  assert.deepEqual(updated.acceptance,original.acceptance);
+  assert.deepEqual(s,original);
+  assert.throws(()=>change(updated,{action:'order',...email,expectedVersion:original.version}),/another session/);
+  assert.throws(()=>change(updated,{action:'order',...email,testRef:''}),/external test evidence/);
+});
+
+test('corrected evidence reloads durably and retains the prior snapshot',async()=>{
+  const {db,sqlite}=await database(); let s=newProposal('Fixture Company',false);
+  async function save(next,action){s=await persistProposal(db,'account-one',s,next,actor,action,crypto.randomUUID());}
+  await save(complete(),'save'); await save(change(s,{action:'approve'}),'approve');
+  await save(change(s,{action:'accept',contact:'Client',reference:'Signed quote',date:'2026-09-08'}),'accept');
+  await save(change(s,{action:'setup',answers:['Outcome','Systems','Authority']}),'setup');
+  await save(change(s,{action:'order',key:'email',status:'tested',buildRef:'Build 42',testRef:'Original report'}),'order');
+  const previous=s.version, order=s.orders.find(o=>o.key==='email');
+  await save(change(s,{action:'order',...order,testRef:'Corrected report'}),'order');
+  const loaded=await readProposal(db,'account-one');
+  assert.equal(loaded.orders.find(o=>o.key==='email').testRef,'Corrected report');
+  assert.equal(loaded.orders.find(o=>o.key==='email').buildRef,'Build 42');
+  const old=JSON.parse(sqlite.prepare('SELECT state FROM proposal_revisions WHERE account_id=? AND version=?').get('account-one',previous).state);
+  assert.equal(old.orders.find(o=>o.key==='email').testRef,'Original report');
+  assert.equal(sqlite.prepare('SELECT evidence_ref FROM onboarding_tasks WHERE id=?').get(order.taskId).evidence_ref,'Corrected report');
+  sqlite.close();
+});
+
+test('evidence editor prefills saved fields, detects real edits and renders save/error states',async()=>{
+  const {WorkOrderEvidenceForm,evidenceChanged}=await vite.ssrLoadModule('/components/work-order-evidence-form.tsx');
+  const s=change(change(accepted(),{action:'setup',answers:['Outcome','Systems','Authority']}),{action:'order',key:'email',status:'tested',buildRef:'Build 42',testRef:'Report 42'});
+  const saved=s.orders.find(o=>o.key==='email'), draft={...saved};
+  assert.equal(evidenceChanged(draft,saved),false); assert.equal(evidenceChanged(null,saved),false);
+  draft.testRef='Corrected report'; assert.equal(evidenceChanged(draft,saved),true); assert.equal(saved.testRef,'Report 42');
+  const props={order:draft,saved,busy:false,error:'Save failed. Try again.',onChange:()=>{},onCancel:()=>{},onSave:()=>{}};
+  const html=renderToStaticMarkup(React.createElement(WorkOrderEvidenceForm,props));
+  assert.match(html,/Build 42/); assert.match(html,/Corrected report/); assert.match(html,/Save changes/); assert.match(html,/Cancel/); assert.match(html,/role="alert"/);
+  assert.match(html,/for="evidence-build"/); assert.match(html,/id="evidence-test"/);
+  const pending=renderToStaticMarkup(React.createElement(WorkOrderEvidenceForm,{...props,busy:true}));
+  assert.match(pending,/fieldset disabled/); assert.match(pending,/Saving…/);
+  const demoted=renderToStaticMarkup(React.createElement(WorkOrderEvidenceForm,{...props,order:{...draft,status:'built'}}));
+  assert.match(demoted,/clears the current test reference/);
+});
