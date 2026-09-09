@@ -1,15 +1,15 @@
-/* Decorative lower-sidebar artwork reuses the established header asset.
+/* Decorative lower-sidebar artwork adapts the owner's celestial reference.
    Its own layer never intercepts navigation or changes the original logo. */
 .ops-sidebar { isolation: isolate; }
 .ops-sidebar::before {
   content: '';
   position: absolute;
   inset: auto 0 0;
-  height: min(62dvh, 520px);
+  height: min(90dvh, 900px);
   z-index: -1;
   pointer-events: none;
-  background: linear-gradient(#061b3620, #061b3640), url('/bearagon-ops-header.webp') 68% bottom / auto 100% no-repeat;
-  opacity: .65;
+  background: linear-gradient(#061b3610, #061b3620), url('/sidebar-celestial.png') center bottom / 100% auto no-repeat;
+  opacity: .8;
   -webkit-mask-image: linear-gradient(to top, #000 0%, #000 18%, #0009 52%, transparent 100%);
   mask-image: linear-gradient(to top, #000 0%, #000 18%, #0009 52%, transparent 100%);
 }

@@ -101,13 +101,18 @@ test("sidebar decoration is bottom anchored, fades upward and cannot intercept n
   assert.match(decoration, /inset: auto 0 0/);
   assert.match(decoration, /pointer-events: none/);
   assert.match(decoration, /z-index: -1/);
-  assert.match(decoration, /bearagon-ops-header\.webp/);
+  assert.match(decoration, /sidebar-celestial\.png/);
+  assert.match(decoration, /center bottom \/ 100% auto no-repeat/);
   assert.match(decoration, /mask-image: linear-gradient\(to top, #000 0%, #000 18%, #0009 52%, transparent 100%\)/);
   assert.match(source, /@media \(max-width: 780px\) \{\s*\.ops-sidebar::before \{ display: none/);
   assert.match(source, /@media \(forced-colors: active\)/);
   // The CSS optimizer reverses an upward gradient into equivalent downward stops.
   assert.ok(css.includes('mask-image:linear-gradient(#0000 0%,#0009 48%,#000 82% 100%)'), 'Compiled fade remains transparent at top and opaque at bottom');
-  assert.ok((await readFile(path.join(root, 'public/bearagon-ops-header.webp'))).length > 0);
+  const art = await readFile(path.join(root, 'public/sidebar-celestial.png'));
+  assert.equal(art.subarray(1, 4).toString(), 'PNG');
+  assert.equal(art.readUInt32BE(16), 724);
+  assert.equal(art.readUInt32BE(20), 2172);
+  assert.ok((await readFile(path.join(root, 'dist/client/sidebar-celestial.png'))).equals(art), 'Production asset matches the inspected artwork');
 });
 
 test("emits chart themes for the starter's media dark mode", async () => {
