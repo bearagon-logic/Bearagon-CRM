@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "./semantic-theme.css";
 @import "../vendor/shadcn-tailwind-4.13.0.css";
 @import "./cipher.css";
 @import "./client-workflows.css";

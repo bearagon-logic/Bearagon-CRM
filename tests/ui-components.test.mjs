@@ -55,6 +55,22 @@ test("forwards progress semantics to the primitive", async () => {
   assert.match(html, /data-state="loading"/);
 });
 
+test("ships visible action variants and tactile service choices", async () => {
+  const css = await readCssTree(path.join(root, "dist"));
+  assert.ok(/\.bg-primary\{background-color:#145d86\}/.test(css), 'Primary utility must compile with a real brand color');
+  assert.match(css, /data-variant[=\"']+default/);
+  assert.match(css, /data-variant[=\"']+outline/);
+  assert.match(css, /\.proposal-action-next/);
+  assert.match(css, /\.proposal-toggles button\[aria-pressed/);
+  assert.match(css, /prefers-reduced-motion/);
+  const { Button } = await vite.ssrLoadModule("/components/ui/button.tsx");
+  for (const variant of ['default', 'outline']) {
+    const html = renderToStaticMarkup(React.createElement(Button, { variant, disabled: true }, 'Save'));
+    assert.match(html, new RegExp(`data-variant="${variant}"`));
+    assert.match(html, /disabled=""/);
+  }
+});
+
 test("emits chart themes for the starter's media dark mode", async () => {
   const { ChartStyle } = await vite.ssrLoadModule("/components/ui/chart.tsx");
   const html = renderToStaticMarkup(
