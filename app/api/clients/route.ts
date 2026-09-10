@@ -1,4 +1,4 @@
-import { asc, desc, eq } from "drizzle-orm";
+import { asc, desc, eq, ne } from "drizzle-orm";
 import { getDb } from "../../../db";
 import {
   accountContacts,
@@ -31,7 +31,7 @@ export async function GET(request: Request) {
     const db = getDb();
     const [accountRows, engagementRows, contactRows, workspaceRows, taskRows] =
       await Promise.all([
-        db.select().from(accounts).orderBy(asc(accounts.name)),
+        db.select().from(accounts).where(ne(accounts.status, "archived")).orderBy(asc(accounts.name)),
         db
           .select()
           .from(engagements)

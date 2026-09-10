@@ -3,6 +3,8 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { OwnerSelect } from "@/components/owner-select";
+import { InquiryCleanup } from "@/components/inquiry-cleanup";
+import { isJunkInquiry } from "@/lib/inquiry-cleanup";
 import { Inbox, Plus, Search, ArrowUpRight } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { IntakeFeeds } from "@/components/intake-feeds";
@@ -12,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
 type Account = { id: string; companyName: string; organizationKind: string };
-type Inquiry = { id: string; accountId: string; companyName: string; contactName: string; email: string; phone: string; source: string; summary: string; status: string; owner: string; nextAction: string; followUpDate: string; resolution: string; createdAt: string; recordedBy: string };
+type Inquiry = { id: string; accountId: string; companyName: string; contactName: string; email: string; phone: string; source: string; summary: string; status: string; owner: string; nextAction: string; followUpDate: string; resolution: string; createdAt: string; recordedBy: string; updatedAt: string };
 const empty = { accountId: "", companyName: "", contactName: "", email: "", phone: "", source: "phone", summary: "", owner: "", nextAction: "", followUpDate: "" };
 const states = ["new", "working", "qualified", "closed"];
 function today() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
@@ -34,7 +36,7 @@ export default function Communications() {
   }
   useEffect(() => { refresh(requestedInquiry || undefined).catch((e) => setError(e.message)).finally(() => setLoading(false)); if (requestedInquiry) setFilter("all"); }, [requestedInquiry]);
   const visible = useMemo(() => items.filter((i) =>
-    (filter === "all" || (filter === "open" ? i.status !== "closed" : filter === "overdue" ? i.status !== "closed" && !!i.followUpDate && i.followUpDate < today() : i.status === filter))
+    (filter === "junk" ? isJunkInquiry(i) : filter === "all" || (filter === "open" ? i.status !== "closed" : filter === "overdue" ? i.status !== "closed" && !!i.followUpDate && i.followUpDate < today() : i.status === filter))
     && [i.companyName, i.contactName, i.summary, i.owner].some((v) => v.toLowerCase().includes(query.toLowerCase()))), [items, filter, query]);
   async function create(event: FormEvent) {
     event.preventDefault(); setSaving(true); setError(""); setNotice("");
@@ -61,7 +63,8 @@ export default function Communications() {
       <IntakeFeeds key={feedRevision} onImported={()=>{void refresh().catch((e)=>setError(e.message));}} onReview={(r)=>{setReviewId(r.id);setForm({...empty,...r.event,source:r.event.source==="retell"?"phone":"website"});setError("");setOpen(true);}}/>
       {error && !open && <p role="alert" className="form-error">{error} <button onClick={() => { setError(""); refresh().catch((e) => setError(e.message)); }}>Retry</button></p>}
       {notice && <p role="status" className="intake-notice">{notice}</p>}
-      <div className="intake-toolbar"><label className="intake-search"><Search aria-hidden="true"/><Input aria-label="Search inquiries" placeholder="Search company, contact, or message" value={query} onChange={(e) => setQuery(e.target.value)} /></label><label>Show<select value={filter} onChange={(e) => setFilter(e.target.value)}><option value="open">Open inquiries</option><option value="new">New</option><option value="working">Working</option><option value="qualified">Qualified</option><option value="overdue">Overdue follow-up</option><option value="closed">Closed</option><option value="all">All inquiries</option></select></label><span>{visible.length} shown</span></div>
+      <Button type="button" variant="outline" onClick={()=>setFilter("junk")} aria-pressed={filter==="junk"}>View test / spam</Button>
+      <div className="intake-toolbar"><label className="intake-search"><Search aria-hidden="true"/><Input aria-label="Search inquiries" placeholder="Search company, contact, or message" value={query} onChange={(e) => setQuery(e.target.value)} /></label><label>Show<select value={filter} onChange={(e) => setFilter(e.target.value)}><option value="open">Open inquiries</option><option value="new">New</option><option value="working">Working</option><option value="qualified">Qualified</option><option value="overdue">Overdue follow-up</option><option value="closed">Closed</option><option value="junk">Test / spam</option><option value="all">All inquiries</option></select></label><span>{visible.length} shown</span></div>
       <div className="intake-workspace">
         <section className="intake-list" aria-label="Inquiry list">
           {loading && <p className="intake-empty">Loading inquiries…</p>}
@@ -73,6 +76,7 @@ export default function Communications() {
           <p><b>{selected.contactName}</b><br/>{selected.email || "No email recorded"}<br/>{selected.phone || "No phone recorded"}</p><blockquote className="intake-message">{selected.summary}</blockquote>
           <div className="form-grid"><label>Status<select value={selected.status} onChange={(e) => setSelected({ ...selected, status: e.target.value })}>{states.map((s) => <option key={s} value={s}>{s[0].toUpperCase() + s.slice(1)}</option>)}</select></label><label>Owner<OwnerSelect value={selected.owner} onChange={(value) => setSelected({ ...selected, owner: value })}/></label><label>Next action<Input maxLength={500} value={selected.nextAction} onChange={(e) => setSelected({ ...selected, nextAction: e.target.value })}/></label><label>Follow-up date<Input type="date" value={selected.followUpDate} onChange={(e) => setSelected({ ...selected, followUpDate: e.target.value })}/></label><label className="intake-wide">Resolution / handoff note<Textarea required={selected.status === "closed"} value={selected.resolution} maxLength={2000} placeholder="Record the outcome or handoff. Required to close." onChange={(e) => setSelected({ ...selected, resolution: e.target.value })}/></label></div>
           <div className="intake-save"><span>Recorded by {selected.recordedBy}</span><Button disabled={saving} type="submit">{saving ? "Saving…" : "Save follow-up"}</Button></div>
+          <div className="inquiry-cleanup-action"><InquiryCleanup inquiry={selected} disabled={saving || JSON.stringify(selected)!==JSON.stringify(items.find(i=>i.id===selected.id))} onDone={message=>{setNotice(message);setSelected(null);void refresh().catch(e=>setError(e.message));}}/><p>Save any follow-up edits before cleanup. Closed inquiries can be reopened using Status.</p></div>
         </form> : <div className="intake-empty"><h2>Select an inquiry</h2><p>Review the message, assign an owner, and plan the next conversation.</p></div>}</section>
       </div>
     </div>

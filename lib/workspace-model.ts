@@ -1,5 +1,5 @@
 export type CompanyRecord = { id: string; companyName: string; organizationKind?: string; relationshipOwner?: string; stage: string; onboardingStatus: string; workspaceStatus: string; nextStep: string; dueDate: string };
-export type InquiryRecord = { id: string; accountId: string; companyName: string; status: string; owner: string; nextAction: string; followUpDate: string };
+export type InquiryRecord = { id: string; accountId: string; companyName: string; status: string; owner: string; nextAction: string; followUpDate: string; updatedAt: string };
 export type DeliveryRecord = { id: string; accountId: string; accountName: string; status: string; stage: string; owner: string; nextStep: string; targetDate: string; blocked: number; open: number };
 export type DecisionRecord = { id: string; clientId: string; clientName: string; status: string; title: string; requestedBy: string };
 export type QueueItem = { id: string; company: string; title: string; owner: string; due: string; kind: string; href: string; priority: number };

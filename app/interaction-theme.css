@@ -163,3 +163,5 @@
   [data-slot='button'], .proposal-toggles button { transition: none; }
   .proposal-toggles button:not(:disabled):hover, .proposal-toggles button:not(:disabled):active { transform: none; }
 }
+.inquiry-cleanup-action { padding: 12px 20px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); }
+.inquiry-cleanup-action p { font-size: 14px; color: var(--muted-foreground); }
