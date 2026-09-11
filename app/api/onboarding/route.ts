@@ -6,7 +6,10 @@ import {
   contacts,
   engagements,
   onboardingTasks,
+  accountProposals,
 } from "../../../db/schema";
+import { deliveryReadiness, type DeliveryRequirement } from "../../../lib/delivery-readiness";
+import type { ProposalState } from "../../../lib/proposal-model";
 import { displayLabel } from "../../../lib/ops-domain.mjs";
 import {
   getOperatorIdentity,
@@ -60,36 +63,31 @@ export async function GET(request: Request) {
       ? await db
         .select({
           engagementId: onboardingTasks.engagementId,
+          id: onboardingTasks.id,
+          templateKey: onboardingTasks.templateKey,
+          title: onboardingTasks.title,
           status: onboardingTasks.status,
         })
         .from(onboardingTasks)
         .where(inArray(onboardingTasks.engagementId, engagementIds))
+        .orderBy(asc(onboardingTasks.sortOrder), asc(onboardingTasks.id))
       : [];
+    const accountIds = [...new Set(engagementRows.map(row => row.accountId))];
+    const proposalRows = accountIds.length ? await db.select({ accountId: accountProposals.accountId, state: accountProposals.state })
+      .from(accountProposals).where(inArray(accountProposals.accountId, accountIds)) : [];
+    const proposals = new Map(proposalRows.map(row => [row.accountId, JSON.parse(row.state) as ProposalState]));
     const contactByAccount = new Map(
       contactRows.map((contact) => [contact.accountId, contact]),
     );
-    const taskCounts = new Map<string, { total: number; complete: number; open: number; blocked: number }>();
+    const tasksByEngagement = new Map<string, DeliveryRequirement[]>();
     for (const task of taskRows) {
-      const current = taskCounts.get(task.engagementId) ?? {
-        total: 0,
-        complete: 0,
-        open: 0,
-        blocked: 0,
-      };
-      current.total += 1;
-      if (["completed", "skipped"].includes(task.status)) current.complete += 1;
-      else current.open += 1;
-      if (task.status === "blocked") current.blocked += 1;
-      taskCounts.set(task.engagementId, current);
+      const current = tasksByEngagement.get(task.engagementId) ?? [];
+      current.push(task);
+      tasksByEngagement.set(task.engagementId, current);
     }
 
     const onboardings = engagementRows.map((engagement) => {
-      const counts = taskCounts.get(engagement.id) ?? {
-        total: 0,
-        complete: 0,
-        open: 0,
-        blocked: 0,
-      };
+      const readiness = deliveryReadiness(engagement.status, tasksByEngagement.get(engagement.id) ?? [], proposals.get(engagement.accountId) ?? null);
       const contact = contactByAccount.get(engagement.accountId);
       return {
         id: engagement.id,
@@ -104,7 +102,11 @@ export async function GET(request: Request) {
         targetDate: engagement.targetDate,
         owner: engagement.owner,
         createdAt: engagement.createdAt,
-        ...counts,
+        readiness,
+        total: readiness.total,
+        complete: readiness.complete,
+        open: readiness.open,
+        blocked: readiness.blocked,
       };
     });
 

@@ -4,27 +4,31 @@ import Link from 'next/link';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
-import { emailDefaults, emailConfigIssues, emailGuideVersion, supportedEmailGuide, usesCodex, buildEmailBrief, roster, type EmailConfig, type EmailUpdate, type StepProgress } from '@/lib/email-playbook';
+import { emailDefaults, emailConfigIssues, emailGuideVersion, supportedEmailGuide, usesCodex, buildEmailBrief, roster, type EmailConfig, type EmailUpdate } from '@/lib/email-playbook';
+import { emailResumeStep, entryFrom, rememberDraft, withoutSavedDraft, type WalkthroughDrafts, type WalkthroughEntry as Entry } from '@/lib/email-walkthrough-state';
 import type { ProposalState } from '@/lib/proposal-model';
 
 type Payload = { proposal: ProposalState; closed?: boolean; archived?: boolean; error?: string };
-type Entry = Pick<StepProgress, 'status' | 'notes' | 'evidence' | 'blocker'>;
-const blank: Entry = { status: 'in_progress', notes: '', evidence: '', blocker: '' };
 const statusLabel = (s?: string) => s === 'completed' ? 'Completed' : s === 'blocked' ? 'Blocked' : s === 'in_progress' ? 'In progress' : 'Not started';
-const entryFrom = (p?: StepProgress): Entry => p ? { status:p.status, notes:p.notes, evidence:p.evidence, blocker:p.blocker } : { ...blank };
 
-export function EmailWalkthrough({accountId,initialData,initialStep='configuration'}:{accountId:string;initialData?:Payload;initialStep?:string}) {
+export function EmailWalkthrough({accountId,initialData,initialStep}:{accountId:string;initialData?:Payload;initialStep?:string}) {
   const initialRun=initialData?.proposal.orders.find(o=>o.key==='email')?.emailRun;
+  const start=initialStep||emailResumeStep(initialRun,!!initialData?.closed||!!initialData?.archived);
   const initialConfig=initialRun?.config||(initialData?emailDefaults(initialData.proposal.draft):null);
-  const initialEntry=entryFrom(initialRun?.progress[initialStep]);
+  const initialEntry=entryFrom(initialRun?.progress[start]);
   const [data,setData]=useState<Payload|null>(initialData||null),[config,setConfig]=useState<EmailConfig|null>(initialConfig);
-  const [active,setActive]=useState(initialStep),[entry,setEntry]=useState<Entry>(initialEntry);
+  const [active,setActive]=useState(start),[entry,setEntry]=useState<Entry>(initialEntry);
   const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[conflict,setConflict]=useState(false);
   const [draftBase,setDraftBase]=useState(JSON.stringify(initialConfig)),[entryBase,setEntryBase]=useState(JSON.stringify(initialEntry));
   const [revalidate,setRevalidate]=useState(false),[compare,setCompare]=useState(false);
   const heading=useRef<HTMLHeadingElement>(null);
+  const drafts=useRef<WalkthroughDrafts>({entries:{}});
   const proposal=data?.proposal, order=proposal?.orders.find(o=>o.key==='email'), run=order?.emailRun;
-  const dirty=active==='configuration'?!!config&&JSON.stringify(config)!==draftBase:JSON.stringify(entry)!==entryBase;
+  const currentDirty=active==='configuration'?!!config&&JSON.stringify(config)!==draftBase:active!=='summary'&&JSON.stringify(entry)!==entryBase;
+  const unsaved=new Set(Object.keys(drafts.current.entries));
+  if(drafts.current.configuration)unsaved.add('configuration');
+  if(currentDirty)unsaved.add(active);else unsaved.delete(active);
+  const dirty=unsaved.size>0;
   const readOnly=!!data?.closed||!!data?.archived||!!run&&!supportedEmailGuide(run.version);
   const steps=run?.steps||[],current=steps.find(s=>s.id===active),index=steps.findIndex(s=>s.id===active);
   const prerequisites=steps.slice(0,index).filter(s=>run?.progress[s.id]?.status!=='completed');
@@ -35,32 +39,47 @@ export function EmailWalkthrough({accountId,initialData,initialStep='configurati
   const technicalChange=changedFields.some(k=>k!=='owner')||guideUpgrade;
   const needsReset=!!run&&technicalChange&&(Object.keys(run.progress).length>0||order?.status!=='to_build');
 
+  function rememberCurrent() {
+    if(active==='configuration'&&config)drafts.current.configuration=rememberDraft(config,draftBase);
+    else if(active!=='summary'){
+      const draft=rememberDraft(entry,entryBase);
+      if(draft)drafts.current.entries[active]=draft;else delete drafts.current.entries[active];
+    }
+  }
   function show(p:Payload, target:string) {
     const r=p.proposal.orders.find(o=>o.key==='email')?.emailRun;
-    const c=r?.config||emailDefaults(p.proposal.draft);setConfig({...c});setDraftBase(JSON.stringify(c));
-    const e=entryFrom(r?.progress[target]);setEntry(e);setEntryBase(JSON.stringify(e));setActive(target);setRevalidate(false);
+    const c=r?.config||emailDefaults(p.proposal.draft),cd=drafts.current.configuration;
+    setConfig({...cd?.value||c});setDraftBase(cd?.base||JSON.stringify(c));
+    const e=entryFrom(r?.progress[target]),ed=drafts.current.entries[target];
+    setEntry({...ed?.value||e});setEntryBase(ed?.base||JSON.stringify(e));setActive(target);setRevalidate(false);
+    setCompare(target==='configuration'?!!cd&&cd.base!==JSON.stringify(c):!!ed&&ed.base!==JSON.stringify(e));
   }
   async function load(preserve=false) {
     if(busy)return;setBusy(true);setError('');
+    if(preserve)rememberCurrent();
     try {const res=await fetch(`/api/clients/${accountId}/proposal`,{cache:'no-store'});const p=await res.json() as Payload;if(!res.ok)throw Error(p.error||'Unable to load walkthrough.');setData(p);
-      if(!preserve)show(p,active);else{setCompare(true);setRevalidate(false);setNotice('Latest saved record loaded. Your unsaved fields are retained. Compare the saved values below before saving.');}
+      show(p,preserve?active:initialStep||emailResumeStep(p.proposal.orders.find(o=>o.key==='email')?.emailRun,!!p.closed||!!p.archived));
+      if(preserve){setCompare(true);setNotice('Latest saved record loaded. All unsaved drafts are retained. Compare the saved values below before saving.');}
       setConflict(false);
     }catch(e){setError((e as Error).message);}finally{setBusy(false);}
   }
   useEffect(()=>{void load();},[accountId]);
   useEffect(()=>{
     const unload=(e:BeforeUnloadEvent)=>{if(dirty||busy){e.preventDefault();e.returnValue='';}};
-    const leave=(e:MouseEvent)=>{const a=(e.target as Element)?.closest('a[href]');if(a&&!a.getAttribute('target')&&(busy||dirty&&!window.confirm('Leave without saving these walkthrough edits? Previously saved progress will remain.'))){e.preventDefault();e.stopPropagation();}};
+    const leave=(e:MouseEvent)=>{const a=(e.target as Element)?.closest('a[href]');if(a&&!a.getAttribute('target')&&(busy||dirty&&!window.confirm(`Leave without saving ${unsaved.size} walkthrough draft(s)? Unsaved configuration and step notes will be discarded. Previously saved progress will remain.`))){e.preventDefault();e.stopPropagation();}};
     window.addEventListener('beforeunload',unload);document.addEventListener('click',leave,true);
     return()=>{window.removeEventListener('beforeunload',unload);document.removeEventListener('click',leave,true);};
-  },[dirty,busy]);
-  useEffect(()=>{heading.current?.focus();},[active]);
-  function go(id:string){if(busy||!data)return;if(dirty&&!window.confirm('Discard unsaved edits to this step? Saved progress remains available.'))return;show(data,id);setError('');setNotice('');setCompare(false);setConflict(false);}
+  },[dirty,busy,unsaved.size]);
+  useEffect(()=>{heading.current?.focus();},[active,!!data]);
+  function go(id:string){if(busy||!data)return;rememberCurrent();show(data,id);if(!conflict)setError('');setNotice('');}
+  function discardCurrent(){if(busy||!data||!currentDirty||!window.confirm('Discard only this unsaved draft? Other drafts and saved progress will remain.'))return;drafts.current=withoutSavedDraft(drafts.current,active);show(data,active);}
+  function discardRetained(id:string){if(busy||!data||!window.confirm('Discard this earlier-route draft? Saved history and other drafts remain.'))return;drafts.current=withoutSavedDraft(drafts.current,id);show(data,active);setNotice('Earlier-route draft discarded.');}
   async function save(update:EmailUpdate,advance=false) {
-    if(!proposal||busy||readOnly||conflict)return;setBusy(true);setError('');setNotice('');
+    if(!proposal||busy||readOnly||conflict)return;rememberCurrent();setBusy(true);setError('');setNotice('');
     try{const res=await fetch(`/api/clients/${accountId}/proposal`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'emailPlaybook',key:'email',expectedVersion:proposal.version,emailUpdate:update})});const p=await res.json() as Payload;if(!res.ok){if(res.status===409)setConflict(true);throw Error(p.error||'Unable to save.');}
-      const next={...data,...p};setData(next);const target=advance?(update.kind==='configure'?p.proposal.orders.find(o=>o.key==='email')?.emailRun?.steps[0]?.id:steps[index+1]?.id)||active:active;
-      show(next,target);setCompare(false);setNotice(update.kind==='configure'?'Configuration saved. Nothing was connected or deployed.':'Progress saved. Build evidence, launch approval and runtime health remain separate.');
+      const next={...data,...p};setData(next);drafts.current=withoutSavedDraft(drafts.current,update.kind==='configure'?'configuration':update.stepId);
+      const target=advance?emailResumeStep(p.proposal.orders.find(o=>o.key==='email')?.emailRun,!!next.closed||!!next.archived):active;
+      show(next,target);setNotice(update.kind==='configure'?'Configuration saved. Nothing was connected or deployed.':'Progress saved. Build evidence, launch approval and runtime health remain separate.');
     }catch(e){setError((e as Error).message);}finally{setBusy(false);}
   }
   const update=(status=entry.status):EmailUpdate=>({kind:'step',stepId:active,...entry,status});
@@ -70,10 +89,10 @@ export function EmailWalkthrough({accountId,initialData,initialStep='configurati
   return <main className="email-walkthrough">
     <header className="walkthrough-heading"><Link href={`/clients/${accountId}?tab=delivery`}>← {proposal.company} · {proposal.internal?'Automation work':'Build & test'}</Link><div><div><small className="eyebrow">GUIDED IMPLEMENTATION</small><h1>Email assistance</h1></div><span className="walkthrough-count">{completed} / {steps.length||6} steps recorded</span></div><p>Follow the saved route. Build in the harness. Keep evidence for the next person.</p><progress aria-label="Recorded walkthrough progress" value={completed} max={steps.length||6}/></header>
     {readOnly&&<div className="company-notice">{data.archived?'This company is archived. Its walkthrough is retained as read-only history.':data.closed?'This delivery is closed. Its walkthrough is retained as read-only history.':'This walkthrough uses a previous guide version and is read-only. Its instructions and evidence have been preserved.'}</div>}
-    {notice&&<p className="walkthrough-notice" role="status">{notice}</p>}
+    {notice&&<p className="walkthrough-notice" role="status">{notice}</p>}{dirty&&<p className="walkthrough-notice" role="status">{unsaved.size} unsaved draft(s). You can open other steps and return to these notes. Save before leaving this walkthrough.</p>}
     {error&&<div role="alert" className="company-error">{error} Your fields are still here. <Button variant="outline" disabled={busy} onClick={()=>void load(true)}>Load latest without clearing my fields</Button></div>}
-    <div className="walkthrough-layout"><aside className="walkthrough-rail" aria-label="Email walkthrough steps"><Button variant={active==='configuration'?'default':'outline'} disabled={busy} onClick={()=>go('configuration')}>Configuration <small>{run?'Saved':'Start here'}</small></Button>{steps.map((s,i)=><Button key={s.id} variant={active===s.id?'default':'outline'} aria-current={active===s.id?'step':undefined} disabled={busy} onClick={()=>go(s.id)}><span>{i+1}. {s.title}</span><small>{statusLabel(run?.progress[s.id]?.status)}</small></Button>)}<p>Owner: {run?.config.owner||'Not assigned'}<br/>Guide: {run?.version||emailGuideVersion}</p><p>Guide steward: Bearagon delivery team<br/>Provider references checked September 11, 2026. Field validation by the team is still needed.</p></aside>
-      <section className="walkthrough-main"><div className="walkthrough-section-title"><h2 ref={heading} tabIndex={-1}>{active==='configuration'?'Confirm the implementation route':current?.title}</h2><span>{dirty?'Unsaved edits':`Saved record v${proposal.version}`}</span></div>
+    <div className="walkthrough-layout"><aside className="walkthrough-rail" aria-label="Email walkthrough steps"><Button variant={active==='configuration'?'default':'outline'} disabled={busy} onClick={()=>go('configuration')}>Configuration <small>{unsaved.has('configuration')?'Unsaved draft':run?'Saved':'Start here'}</small></Button>{steps.map((s,i)=><Button key={s.id} variant={active===s.id?'default':'outline'} aria-current={active===s.id?'step':undefined} disabled={busy} onClick={()=>go(s.id)}><span>{i+1}. {s.title}</span><small>{unsaved.has(s.id)?'Unsaved draft':statusLabel(run?.progress[s.id]?.status)}</small></Button>)}{run&&<Button variant={active==='summary'?'default':'outline'} aria-current={active==='summary'?'step':undefined} disabled={busy} onClick={()=>go('summary')}>Walkthrough review</Button>}<p>Owner: {run?.config.owner||'Not assigned'}<br/>Guide: {run?.version||emailGuideVersion}</p><p>Guide steward: Bearagon delivery team<br/>Provider references checked September 11, 2026. Field validation by the team is still needed.</p></aside>
+      <section className="walkthrough-main"><div className="walkthrough-section-title"><h2 ref={heading} tabIndex={-1}>{active==='configuration'?'Confirm the implementation route':active==='summary'?'Review recorded walkthrough':current?.title}</h2><span>{currentDirty?'Unsaved edits':`Saved record v${proposal.version}`}</span></div>{currentDirty&&<Button variant="outline" disabled={busy} onClick={discardCurrent}>Discard this draft</Button>}
         {active==='configuration'?<form onSubmit={e=>{e.preventDefault();void save({kind:'configure',config,confirmReset:revalidate},true);}}>
           <p>Scope information is prefilled where available. Complete the remaining details, or save and come back. These answers do not change accepted commercial scope.</p>
           {guideUpgrade&&<p className="walkthrough-prerequisites">A newer guide includes the Codex delivery route. Your saved instructions remain unchanged until you save configuration; that save upgrades the guide and requires revalidation of recorded work.</p>}
@@ -109,8 +128,8 @@ export function EmailWalkthrough({accountId,initialData,initialStep='configurati
             {prerequisites.length===0&&configIssues.length===0&&!entry.evidence.trim()&&<p className="company-help">Add an observed result or evidence reference to complete this step. Partial notes can be saved at any time.</p>}
           </fieldset></form>
         </>}
-        {compare&&<details open className="walkthrough-comparison"><summary>Latest saved values — compare with your unsaved fields above</summary><pre>{JSON.stringify(active==='configuration'?run?.config:run?.progress[active],null,2)||'No saved values yet.'}</pre></details>}
-        {steps.length>0&&completed===steps.length&&<div className="walkthrough-success"><h3>Walkthrough recorded. Ready for the delivery review.</h3><p>Your team’s instructions and evidence are saved. This does not mark the automation tested, approve launch or verify runtime health.</p><Link href={`/clients/${accountId}?tab=delivery`}>Return to build & test →</Link></div>}
+        {Object.entries(drafts.current.entries).filter(([id])=>!steps.some(s=>s.id===id)).map(([id,draft])=><details className="walkthrough-reference" key={id} open><summary>Unsaved draft from an earlier route: {id}</summary><p>This step is outside the saved route. Keep a copy of these notes or return to its configuration before saving.</p><pre>{JSON.stringify(draft.value,null,2)}</pre><Button variant="outline" disabled={busy} onClick={()=>discardRetained(id)}>Discard this earlier-route draft</Button></details>)}{compare&&<details open className="walkthrough-comparison"><summary>Latest saved values — compare with your unsaved fields above</summary><pre>{JSON.stringify(active==='configuration'?run?.config:run?.progress[active],null,2)||'No saved values yet.'}</pre></details>}
+        {active==='summary'&&<section className="walkthrough-success"><h3>{completed===steps.length&&steps.length>0?'Walkthrough recorded. Ready for the delivery review.':'Saved walkthrough progress'}</h3><p>{completed} of {steps.length} steps have completed evidence. Walkthrough progress does not approve launch or verify runtime health.</p><ul>{steps.map(s=><li key={s.id}>{s.title}: {statusLabel(run?.progress[s.id]?.status)}</li>)}</ul><Link href={`/clients/${accountId}?tab=delivery`}>Return to {proposal.internal?'automation work':'build & test'} →</Link></section>}{active!=='summary'&&steps.length>0&&completed===steps.length&&<div className="walkthrough-success"><h3>Walkthrough recorded. Ready for the delivery review.</h3><p>Your team’s instructions and evidence are saved. This does not mark the automation tested, approve launch or verify runtime health.</p><Link href={`/clients/${accountId}?tab=delivery`}>Return to build & test →</Link></div>}
         <details className="walkthrough-reference"><summary>Accepted scope & shared setup reference</summary><p><b>Scope revision:</b> {proposal.scopeRevision} · <b>Setup revision:</b> {proposal.setup.revision}</p>{Object.entries(proposal.draft.services.email?.config||{}).map(([k,v])=><p key={k}><b>{k}:</b> {v}</p>)}{proposal.setup.answers.map((a,i)=><p key={i}>{a||'Shared setup answer not yet recorded'}</p>)}</details>
         {run&&<details className="walkthrough-reference"><summary>{usesCodex(run.config)?'Copyable Codex task prompt':'Copyable build brief'}</summary><p>Generated from saved configuration. Instructions for a builder—not executable code. Paste into the authorized company project; copying does not start a task.</p><Button variant="outline" onClick={()=>void copyBrief()}>{usesCodex(run.config)?'Copy Codex task prompt':'Copy build brief'}</Button><pre>{buildEmailBrief(proposal.company,run.config)}</pre></details>}
         {run&&Object.keys(run.progress).some(id=>!steps.some(s=>s.id===id))&&<details className="walkthrough-reference"><summary>Retained notes from earlier routes</summary><p>These entries are not counted toward the current route. Configuration changes require revalidation before prior work can be reused.</p>{Object.entries(run.progress).filter(([id])=>!steps.some(s=>s.id===id)).map(([id,p])=><article key={id}><h3>{id.replaceAll('-',' ')}</h3><p>{p.notes}</p><p>{p.evidence}</p>{p.blocker&&<p>{p.blocker}</p>}</article>)}</details>}

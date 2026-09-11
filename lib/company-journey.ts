@@ -11,9 +11,9 @@ export function journeyPhase(client: {stage:string;onboardingStatus:string;sales
   if (client.organizationKind === 'internal') return 4;
   if (client.stage === 'Live' && client.onboardingStatus === 'completed') return 4;
   if (proposal?.acceptance) return proposal.setup.answers.every(a=>a.trim()) ? 3 : 2;
-  if (proposal?.version) return 1;
   // Keep pre-migration delivery visible without inventing accepted package data.
-  if (client.onboardingStatus === 'active') return ['Building','Testing','Live'].includes(client.stage) ? 3 : 2;
+  if (['active','blocked'].includes(client.onboardingStatus)) return ['Building','Testing','Live'].includes(client.stage) ? 3 : 2;
+  if (proposal?.version) return 1;
   if (['qualified','proposal','won'].includes(client.salesStage||'')) return 1;
   return 0;
 }
