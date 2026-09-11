@@ -13,7 +13,41 @@ after(()=>vite.close());
 const {newProposal,transitionProposal,proposalIssues}=await vite.ssrLoadModule('/lib/proposal-model.ts');
 const {serviceCatalog,cents,scopeIssues}=await vite.ssrLoadModule('/lib/proposal-scope.ts');
 const {persistProposal,readProposal}=await vite.ssrLoadModule('/lib/server/proposal-store.ts');
+const {internalStage,internalBacklog}=await vite.ssrLoadModule('/lib/internal-operations.ts');
+const {journeyPhase}=await vite.ssrLoadModule('/lib/company-journey.ts');
 const actor={id:'employee-1',name:'Test reviewer',email:'reviewer@example.test',at:'2026-09-08T12:00:00.000Z'};
+
+test('internal operations opens immediately without changing client lifecycle rules',()=>{
+  assert.equal(journeyPhase({organizationKind:'internal',stage:'Intake',onboardingStatus:'active'},null),4);
+  assert.notEqual(journeyPhase({organizationKind:'external',stage:'Intake',onboardingStatus:'active'},null),4);
+});
+test('internal use approval is per automation and retracted when evidence changes',()=>{
+  let s=change(accepted(true),{action:'setup',answers:['Outcome','Systems','Authority']});const key=s.orders[0].key;
+  assert.throws(()=>change(s,{action:'releaseInternal',key,review:'Boundaries',confirmed:true}),/build and test/);
+  s=change(s,{action:'order',key,status:'building',buildRef:'Work in progress'});assert.equal(internalStage(s.orders[0],s.setup.revision),'Building');
+  s=change(s,{action:'order',key,status:'tested',buildRef:'Build',testRef:'Test'});
+  assert.equal(internalStage(s.orders[0],s.setup.revision),'Testing');
+  assert.throws(()=>change(s,{action:'releaseInternal',key,review:'',confirmed:true}),/Review/);
+  assert.throws(()=>change(s,{action:'releaseInternal',key,review:'Allowed actions and fallback',confirmed:false}),/Review/);
+  s=change(s,{action:'releaseInternal',key,review:'Allowed actions and fallback',confirmed:true});assert.equal(internalStage(s.orders[0],s.setup.revision),'Operating');assert.equal(internalStage(s.orders[1],s.setup.revision),'Planned');
+  assert.equal(internalBacklog({id:'a',name:'Internal',owner:'Emily'},s).length,s.orders.length-1);
+  const before=structuredClone(s);s=change(s,{action:'addInternalOrder',name:'New workflow',brief:'Outcome, access, fallback'});assert.equal(internalStage(s.orders[0],s.setup.revision),'Operating');assert.deepEqual(s.acceptance,before.acceptance);assert.deepEqual(s.draft,before.draft);
+  s=change(s,{action:'order',key,status:'tested',buildRef:'Corrected build',testRef:'Retest'});assert.equal(s.orders[0].internalRelease,null);assert.equal(internalStage(s.orders[0],s.setup.revision),'Testing');
+  assert.throws(()=>change(accepted(),{action:'addInternalOrder',name:'No',brief:'Not internal'}),/internal organization/);
+  assert.throws(()=>change(change(accepted(),{action:'setup',answers:['a','b','c']}),{action:'order',key,status:'building',buildRef:'x'}),/valid state/);
+});
+test('internal backlog addition persists atomically without completing other work or creating client fees',async()=>{
+  const {db,sqlite}=await database();sqlite.exec("UPDATE accounts SET organization_kind='internal' WHERE id='account-one'");let s=newProposal('Fixture Company',true);
+  async function save(next,action){s=await persistProposal(db,'account-one',s,next,actor,action,crypto.randomUUID());}
+  await save(complete(true),'save');await save(change(s,{action:'approve'}),'approve');await save(change(s,{action:'authorizeInternal'}),'authorizeInternal');await save(change(s,{action:'setup',answers:['Outcome','Systems','Authority']}),'setup');
+  const old=structuredClone(s);await save(change(s,{action:'addInternalOrder',name:'Extra internal automation',brief:'Scoped work with human fallback'}),'addInternalOrder');const added=s.orders.at(-1);
+  assert.equal(sqlite.prepare('SELECT monthly_fee_cents FROM account_services WHERE id=?').get(added.serviceId).monthly_fee_cents,null);
+  assert.equal(sqlite.prepare('SELECT status FROM onboarding_tasks WHERE id=?').get(added.taskId).status,'pending');
+  assert.deepEqual(s.orders.slice(0,-1),old.orders);assert.deepEqual((await readProposal(db,'account-one')).orders,s.orders);
+  await assert.rejects(()=>persistProposal(db,'account-one',old,change(old,{action:'addInternalOrder',name:'Stale',brief:'Should not appear'}),actor,'addInternalOrder','stale'),/Another operator/);
+  assert.equal(sqlite.prepare("SELECT count(*) n FROM account_services WHERE name='Stale'").get().n,0);
+  assert.equal(sqlite.prepare('SELECT status FROM engagements WHERE id=?').get(s.engagementId).status,'active');sqlite.close();
+});
 function change(state,command){return transitionProposal(state,{expectedVersion:state.version,...command},actor,()=>crypto.randomUUID());}
 function complete(internal=false){const s=newProposal('Fixture Company',internal);const d=s.draft;d.ecosystem='Google Workspace';d.setup='2,000';d.monthly='500';d.allowance='100';d.overage='50';d.eligible='Attributable provider costs';d.exclusions='Client-paid subscriptions';d.allocation='Separate project ledger';for(const service of serviceCatalog){for(const f of service.fields)d.services[service.id].config[f.key]=f.options?.[0]||`Agreed ${f.label}`;}return change(s,{action:'save',draft:d});}
 function accepted(internal=false){let s=change(complete(internal),{action:'approve'});return change(s,{action:internal?'authorizeInternal':'accept',contact:'Client decision maker',reference:'Signed quote fixture',date:'2026-09-08'});}

@@ -7,7 +7,8 @@ export function companySection(tab: string | null): CompanySection {
   if (tab === 'onboarding') return 'delivery';
   return ['overview','services','delivery','activity','complete'].includes(tab || '') ? tab as CompanySection : 'overview';
 }
-export function journeyPhase(client: {stage:string;onboardingStatus:string;salesStage?:string}, proposal: ProposalState | null) {
+export function journeyPhase(client: {stage:string;onboardingStatus:string;salesStage?:string;organizationKind?:string}, proposal: ProposalState | null) {
+  if (client.organizationKind === 'internal') return 4;
   if (client.stage === 'Live' && client.onboardingStatus === 'completed') return 4;
   if (proposal?.acceptance) return proposal.setup.answers.every(a=>a.trim()) ? 3 : 2;
   if (proposal?.version) return 1;

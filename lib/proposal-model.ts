@@ -1,14 +1,14 @@
 import { emptyScope, scopeIssues, standardSetupDescription, withBudgetExamples, validScopeDraft, type ScopeDraft, scopedServiceNames } from './proposal-scope';
 
 export type Stamp = { id: string; name: string; email: string; at: string };
-export type WorkOrder = { key: string; serviceId: string; taskId: string; name: string; status: 'to_build' | 'built' | 'tested'; buildRef: string; testRef: string; recorded: Stamp | null; setupRevision: number };
+export type WorkOrder = { key: string; serviceId: string; taskId: string; name: string; status: 'to_build' | 'building' | 'built' | 'tested'; buildRef: string; testRef: string; recorded: Stamp | null; setupRevision: number; brief?:string; internalRelease?:{review:string;recorded:Stamp;setupRevision:number}|null };
 export type ProposalState = {
   version: number; scopeRevision: number; company: string; internal: boolean; draft: ScopeDraft;
   approval: (Stamp & { revision: number }) | null;
   acceptance: (Stamp & { revision: number; reference: string; date: string; contact: string; internal: boolean }) | null;
   engagementId: string; setup: { answers: string[]; revision: number; recorded: Stamp | null }; orders: WorkOrder[];
 };
-export type ProposalCommand = { action: 'save' | 'approve' | 'accept' | 'authorizeInternal' | 'setup' | 'order'; expectedVersion: number; draft?: unknown; reference?: string; date?: string; contact?: string; answers?: unknown; confirmReset?: boolean; key?: string; status?: string; buildRef?: string; testRef?: string };
+export type ProposalCommand = { action: 'save' | 'approve' | 'accept' | 'authorizeInternal' | 'setup' | 'order' | 'addInternalOrder' | 'releaseInternal' | 'withdrawInternal'; expectedVersion: number; draft?: unknown; reference?: string; date?: string; contact?: string; answers?: unknown; confirmReset?: boolean; key?: string; status?: string; buildRef?: string; testRef?: string; name?:string; brief?:string; review?:string; confirmed?:boolean };
 export class ProposalError extends Error { constructor(message: string, public status = 400) { super(message); } }
 export function newProposal(company: string, internal: boolean): ProposalState {
   return { version: 0, scopeRevision: 0, company, internal, draft: { ...withBudgetExamples(emptyScope()), setupDescription: standardSetupDescription, pricingMode: 'package' }, approval: null, acceptance: null, engagementId: '', setup: { answers: ['', '', ''], revision: 0, recorded: null }, orders: [] };
@@ -44,14 +44,32 @@ export function transitionProposal(current: ProposalState, command: ProposalComm
     if (JSON.stringify(answers) === JSON.stringify(s.setup.answers)) return current;
     if (s.orders.some(o => o.status !== 'to_build') && command.confirmReset !== true) throw new ProposalError('Confirm that changing setup returns this package’s work orders to To build for revalidation.', 409);
     s.setup = { answers, revision: s.setup.revision + 1, recorded: actor };
-    s.orders = s.orders.map(o => ({ ...o, status: 'to_build', buildRef: '', testRef: '', recorded: null, setupRevision: s.setup.revision }));
+    s.orders = s.orders.map(o => ({ ...o, status: 'to_build', buildRef: '', testRef: '', recorded: null, setupRevision: s.setup.revision, ...(s.internal?{internalRelease:null}:{}) }));
+  } else if (['addInternalOrder','releaseInternal','withdrawInternal'].includes(command.action)) {
+    if(!s.internal||!s.acceptance?.internal)throw new ProposalError('This action requires an authorized internal organization.',403);
+    if(command.action==='addInternalOrder') {
+      if(!text(command.name,160)||!text(command.brief,2000))throw new ProposalError('Name the automation and describe its outcome, systems and human fallback.');
+      if(s.orders.length>=50)throw new ProposalError('This internal portfolio is limited to 50 work orders.');
+      s.orders.push({key:`internal_${newId()}`,serviceId:`service_${newId()}`,taskId:`task_${newId()}`,name:command.name!.trim(),brief:command.brief!.trim(),status:'to_build',buildRef:'',testRef:'',recorded:null,setupRevision:s.setup.revision});
+    } else {
+      const order=s.orders.find(o=>o.key===command.key);
+      if(!order)throw new ProposalError('Choose an existing internal automation.');
+      if(command.action==='withdrawInternal') { order.internalRelease=null; }
+      else {
+        if(order.status!=='tested'||order.setupRevision!==s.setup.revision||!text(order.buildRef)||!text(order.testRef))throw new ProposalError('Record current build and test evidence for this automation first.');
+        if(!s.setup.answers.every(a=>text(a))||!text(command.review,2000)||command.confirmed!==true)throw new ProposalError('Review approved actions, access boundaries and human fallback, then confirm your authority.');
+        order.internalRelease={review:command.review!.trim(),recorded:actor,setupRevision:s.setup.revision};
+      }
+    }
   } else if (command.action === 'order') {
     if (!s.acceptance || !s.setup.answers.every(a => text(a))) throw new ProposalError('Complete and save all three setup answers first.');
     const order = s.orders.find(o => o.key === command.key);
-    if (!order || !['to_build', 'built', 'tested'].includes(command.status || '')) throw new ProposalError('Choose an existing work order and a valid state.');
-    if (command.status !== 'to_build' && !text(command.buildRef)) throw new ProposalError('Provide the actual build reference.');
+    if (!order || !(s.internal?['to_build','building','built','tested']:['to_build','built','tested']).includes(command.status || '')) throw new ProposalError('Choose an existing work order and a valid state.');
+    if (['built','tested'].includes(command.status||'') && !text(command.buildRef)) throw new ProposalError('Provide the actual build reference.');
+    if(command.status==='building'&&typeof command.buildRef==='string'&&command.buildRef.length>2000)throw new ProposalError('Build notes must be no longer than 2,000 characters.');
     if (command.status === 'tested' && !text(command.testRef)) throw new ProposalError('Provide external test evidence; a click does not run a test.');
-    order.status = command.status as WorkOrder['status']; order.buildRef = command.status === 'to_build' ? '' : command.buildRef!.trim(); order.testRef = command.status === 'tested' ? command.testRef!.trim() : ''; order.recorded = actor; order.setupRevision = s.setup.revision;
+    order.status = command.status as WorkOrder['status']; order.buildRef = command.status === 'to_build' ? '' : (command.buildRef||'').trim(); order.testRef = command.status === 'tested' ? command.testRef!.trim() : ''; order.recorded = actor; order.setupRevision = s.setup.revision;
+    if(s.internal)order.internalRelease=null;
   } else throw new ProposalError('Unknown proposal action.');
   s.version++;
   return s;

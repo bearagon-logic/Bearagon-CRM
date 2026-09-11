@@ -41,9 +41,15 @@ export async function persistProposal(db: DB, accountId: string, before: Proposa
       statements.push(guarded(`INSERT INTO onboarding_tasks(id,engagement_id,template_key,title,description,sort_order) SELECT ?,?,?,?,?,? WHERE ${gate}`, [order.taskId,next.engagementId,`scope:${order.key}`,`Implement: ${order.name}`,'Use guided setup to record build and external test evidence against the accepted scope.',100+i]));
     }
   }
+  if(action==='addInternalOrder') {
+    for(const o of next.orders.filter(o=>!before.orders.some(old=>old.key===o.key))) {
+      statements.push(guarded(`INSERT INTO account_services(id,account_id,name,status,scope,maintenance,configuration,updated_at) SELECT ?,?,?,'ordered',?,'Internal operations',?,? WHERE ${gate}`,[o.serviceId,accountId,o.name,o.brief||'',o.brief||'',actor.at]));
+      statements.push(guarded(`INSERT INTO onboarding_tasks(id,engagement_id,template_key,title,description,sort_order) SELECT ?,?,?,?,?,? WHERE ${gate}`,[o.taskId,next.engagementId,`scope:${o.key}`,`Implement: ${o.name}`,o.brief||'',100+next.orders.indexOf(o)]));
+    }
+  }
   if (action === 'setup' || action === 'order') {
     if (action === 'setup' || next.orders.some(o => o.status !== 'tested')) statements.push(guarded(`UPDATE engagements SET stage='intake',next_step=?,updated_at=? WHERE id=? AND account_id=? AND status IN ('planned','active','blocked') AND ${gate}`, [next.setup.answers.every(a=>a.trim())?'Revalidate package work orders and delivery requirements':'Complete guided setup',actor.at,next.engagementId,accountId]));
-    for (const o of next.orders) statements.push(guarded(`UPDATE onboarding_tasks SET status=?,evidence_ref=?,completion_note=?,completed_at=?,updated_at=? WHERE id=? AND engagement_id=? AND ${gate}`, [o.status==='tested'?'completed':o.status==='built'?'in_progress':'pending',o.testRef,o.buildRef,o.status==='tested'?actor.at:'',actor.at,o.taskId,next.engagementId]));
+    for (const o of next.orders) statements.push(guarded(`UPDATE onboarding_tasks SET status=?,evidence_ref=?,completion_note=?,completed_at=?,updated_at=? WHERE id=? AND engagement_id=? AND ${gate}`, [o.status==='tested'?'completed':['built','building'].includes(o.status)?'in_progress':'pending',o.testRef,o.buildRef,o.status==='tested'?actor.at:'',actor.at,o.taskId,next.engagementId]));
   }
   const result = await db.batch(statements);
   if (result[0].meta.changes !== 1) throw new ProposalError('Another operator saved first. Reload to review their changes; this request made no changes.',409);

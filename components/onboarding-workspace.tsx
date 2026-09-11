@@ -9,6 +9,7 @@ type Onboarding = {
   id: string;
   accountId: string;
   accountName: string;
+  organizationKind?:string;
   contactName: string;
   contactEmail: string;
   stage: string;
@@ -45,7 +46,7 @@ export function OnboardingWorkspace() {
       .then(async (response) => {
         const data = await response.json() as { onboardings?: Onboarding[]; error?: string };
         if (!response.ok) throw new Error(data.error);
-        setItems(data.onboardings || []);
+        setItems((data.onboardings || []).filter(item=>item.organizationKind!=='internal'));
       })
       .catch(() => setError("Onboarding work is temporarily unavailable."))
       .finally(() => setLoading(false));

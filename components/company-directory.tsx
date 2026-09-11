@@ -179,8 +179,8 @@ export default function AccountsPage() {
                 <Link className="row client" href={`/clients/${client.id}`} key={client.id}>
                   <span className="name"><i>{initials(client.companyName)}</i><span><b>{client.companyName}</b><small>{client.contactName} · {client.email}</small></span></span>
                   <span className="relationship-cell">{client.relationshipType}<small>{client.salesStage || "new"}{client.relationshipOwner ? ` · ${client.relationshipOwner}` : ""}</small></span>
-                  <span><em className={`pill ${client.stage.toLowerCase()}`}>{client.stage}</em></span>
-                  <span className="next-action-cell">{client.nextStep || "Set next action"}</span>
+                  <span><em className={`pill ${client.stage.toLowerCase()}`}>{client.organizationKind==='internal'?'Internal operations':client.stage}</em></span>
+                  <span className="next-action-cell">{client.organizationKind==='internal'?'Manage automation portfolio':client.nextStep || "Set next action"}</span>
                   <span className="target-cell">{client.dueDate || "Not set"}<ArrowUpRight aria-hidden="true" /></span>
                 </Link>
               ))}
