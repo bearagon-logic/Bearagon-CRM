@@ -1,0 +1,23 @@
+import test,{after} from 'node:test';
+import assert from 'node:assert/strict';
+import {createServer} from 'vite';
+import {fileURLToPath} from 'node:url';
+import {readFile} from 'node:fs/promises';
+import React from 'react';
+import {renderToStaticMarkup} from 'react-dom/server';
+const root=fileURLToPath(new URL('..',import.meta.url));
+const vite=await createServer({appType:'custom',configFile:false,root,resolve:{alias:{'@':root}},server:{middlewareMode:true,hmr:false}});
+after(()=>vite.close());
+const {unmetRequirements,requirementIssue}=await vite.ssrLoadModule('/lib/requirement-readiness.ts');
+const {RequirementEditor}=await vite.ssrLoadModule('/components/requirement-editor.tsx');
+const {onboardingTemplate}=await vite.ssrLoadModule('/lib/server/onboarding-template.ts');
+const task=(key,status='pending')=>({id:key,templateKey:key,title:key,description:'Description',status,evidenceRef:'',completionNote:'',blockedReason:''});
+function render(t,tasks=[],extra={}){return renderToStaticMarkup(React.createElement(RequirementEditor,{task:t,tasks,proposal:null,closed:false,busy:false,error:'',onChange:()=>{},onSave:async()=>{},onClose:()=>{},onOpen:()=>{},...extra}));}
+test('each completion gate uses the exact server prerequisite template',()=>{for(const template of onboardingTemplate){const t=task(template.key,'completed');assert.deepEqual(unmetRequirements(t,[]).map(r=>r.key),[...template.dependsOn]);for(const status of ['completed','skipped'])assert.deepEqual(unmetRequirements(t,template.dependsOn.map(key=>task(key,status))),[]);}});
+test('launch shows prerequisites before any editable fields',()=>{const html=render(task('launch'),[task('client_test')]);assert.match(html,/Finish these requirements first/);assert.match(html,/Open Client testing completed/);assert.match(html,/Record progress instead/);assert.doesNotMatch(html,/<textarea|<input|<select/);});
+test('missing prerequisites cannot silently unlock completion',()=>{const t=task('launch','completed');t.completionNote='A long approval note';assert.match(requirementIssue(t,[]),/Client testing/);const html=render(t,[]);assert.match(html,/missing from this checklist/);assert.doesNotMatch(html,/Save completion/);});
+test('progress saves remain valid without prerequisites; completed and exception need evidence',()=>{assert.equal(requirementIssue(task('launch','in_progress'),[]),'');assert.match(requirementIssue(task('agreement','completed'),[]),/verification note/);const completed={...task('agreement','completed'),completionNote:'Verified signed scope'};assert.equal(requirementIssue(completed,[]),'');assert.match(requirementIssue(task('agreement','skipped'),[]),/exception/);assert.match(requirementIssue(task('agreement','blocked'),[]),/blocking/);});
+test('blocker reason is shown only for blocked status and field lengths match API',()=>{for(const status of ['pending','in_progress','completed','skipped'])assert.doesNotMatch(render(task('agreement',status)),/Blocker reason/);const html=render(task('agreement','blocked'));assert.match(html,/Blocker reason \(required\)/);assert.match(html,/maxLength="3000"/i);assert.match(html,/maxLength="1000"/i);});
+test('save error retains paragraph and exposes retry and safe progress action',()=>{const t={...task('agreement','completed'),completionNote:'My entire verification paragraph.',evidenceRef:'saved-ref'};const html=render(t,[],{error:'Another employee changed the checklist.'});assert.match(html,/My entire verification paragraph/);assert.match(html,/saved-ref/);assert.match(html,/Your entries are still here/);assert.match(html,/Save as in progress/);assert.match(html,/Save completion/);});
+test('closed records stay readable without blocked prerequisite edit controls',()=>{const html=render({...task('launch','completed'),completionNote:'Prior approval'},[],{closed:true});assert.match(html,/Prior approval/);assert.match(html,/<fieldset disabled/);assert.match(html,/Close review/);assert.doesNotMatch(html,/Record progress instead|Save completion/);});
+test('opening preflights current data; prerequisite switches retain drafts; failed saves do not clear task',async()=>{const source=await readFile(new URL('../components/company-workspace.tsx',import.meta.url),'utf8');assert.match(source,/const fresh=await json<Detail>/);assert.match(source,/requirementDrafts.current.set\(task.id/);assert.match(source,/requirementDrafts.current.get\(t.id\)/);assert.match(source,/if\(await mutate\([\s\S]*?requirementDrafts.current.delete\(value.id\);setTask\(null\)/);assert.match(source,/blockedReason:value.status==='blocked'\?value.blockedReason:''/);assert.match(source,/function closeTask\(\)[\s\S]*?window.confirm/);});
