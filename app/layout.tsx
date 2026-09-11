@@ -7,6 +7,7 @@ import "./proposal.css";
 import "./company-experience.css";
 import "./interaction-theme.css";
 import "./workflow-refinement.css";
+import "./email-walkthrough.css";
 
 export const metadata: Metadata = {
   title: {

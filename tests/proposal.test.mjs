@@ -15,6 +15,8 @@ const {serviceCatalog,cents,scopeIssues}=await vite.ssrLoadModule('/lib/proposal
 const {persistProposal,readProposal}=await vite.ssrLoadModule('/lib/server/proposal-store.ts');
 const {internalStage,internalBacklog}=await vite.ssrLoadModule('/lib/internal-operations.ts');
 const {journeyPhase}=await vite.ssrLoadModule('/lib/company-journey.ts');
+const {emailDefaults,emailSteps,emailGuideVersion}=await vite.ssrLoadModule('/lib/email-playbook.ts');
+const {EmailWalkthrough}=await vite.ssrLoadModule('/components/email-walkthrough.tsx');
 const actor={id:'employee-1',name:'Test reviewer',email:'reviewer@example.test',at:'2026-09-08T12:00:00.000Z'};
 
 test('internal operations opens immediately without changing client lifecycle rules',()=>{
@@ -51,6 +53,70 @@ test('internal backlog addition persists atomically without completing other wor
 function change(state,command){return transitionProposal(state,{expectedVersion:state.version,...command},actor,()=>crypto.randomUUID());}
 function complete(internal=false){const s=newProposal('Fixture Company',internal);const d=s.draft;d.ecosystem='Google Workspace';d.setup='2,000';d.monthly='500';d.allowance='100';d.overage='50';d.eligible='Attributable provider costs';d.exclusions='Client-paid subscriptions';d.allocation='Separate project ledger';for(const service of serviceCatalog){for(const f of service.fields)d.services[service.id].config[f.key]=f.options?.[0]||`Agreed ${f.label}`;}return change(s,{action:'save',draft:d});}
 function accepted(internal=false){let s=change(complete(internal),{action:'approve'});return change(s,{action:internal?'authorizeInternal':'accept',contact:'Client decision maker',reference:'Signed quote fixture',date:'2026-09-08'});}
+
+function configuredEmail(internal=false){let s=accepted(internal);return change(s,{action:'emailPlaybook',key:'email',emailUpdate:{kind:'configure',config:{...emailDefaults(s.draft),mailboxType:'individual',harness:'Reviewed test harness / connector',owner:'Emily',reviewer:'Company reviewer',rules:'Draft only; excluded topics escalate'}}});}
+function emailStep(s,id,status='completed',extra={}){return change(s,{action:'emailPlaybook',key:'email',emailUpdate:{kind:'step',stepId:id,status,notes:'A paragraph of implementation notes to preserve.',evidence:'Restricted test evidence reference',blocker:'',...extra}});}
+
+test('email guide branches by provider and mailbox type, defaults safely and strips unknown input',()=>{
+  let s=configuredEmail();let r=s.orders[0].emailRun;
+  assert.equal(r.version,emailGuideVersion);assert.equal(r.config.provider,'google');assert.equal(r.config.mode,'draft');assert.ok(r.steps.some(s=>s.id==='connect-google'));assert.ok(r.steps.some(s=>s.id==='draft-review'));assert.equal(s.orders[0].status,'to_build');
+  s=change(s,{action:'emailPlaybook',key:'email',emailUpdate:{kind:'configure',config:{...r.config,provider:'microsoft',mailboxType:'shared',untrusted:'must not persist'}}});r=s.orders[0].emailRun;
+  assert.ok(r.steps.some(s=>s.id==='connect-microsoft'));assert.equal(r.config.untrusted,undefined);assert.match(r.steps.find(s=>s.id==='connect-microsoft').instructions.join(' '),/shared mailbox/);
+  assert.deepEqual(emailSteps({...r.config,provider:''}),[]);
+  assert.throws(()=>change(s,{action:'emailPlaybook',key:'email',emailUpdate:{kind:'configure',config:{...r.config,mode:'auto'}}}),/not in the accepted/);
+  assert.throws(()=>change(s,{action:'emailPlaybook',key:'brief',emailUpdate:{kind:'configure',config:r.config}}),/scoped Email/);
+  assert.throws(()=>change(s,{action:'emailPlaybook',key:'email',emailUpdate:{kind:'configure',config:{...r.config,owner:'Spoofed owner'}}}),/invalid/);
+});
+
+test('email walkthrough accepts partial work, gates completion early and never advances delivery',()=>{
+  let s=configuredEmail();const original=structuredClone(s);const ids=s.orders[0].emailRun.steps.map(s=>s.id);
+  assert.throws(()=>emailStep(s,'test'),/Complete.*first/);
+  s=emailStep(s,'test','in_progress',{evidence:''});assert.equal(s.orders[0].emailRun.progress.test.notes,'A paragraph of implementation notes to preserve.');
+  assert.throws(()=>emailStep(s,ids[0],'completed',{evidence:''}),/observed result/);
+  assert.throws(()=>emailStep(s,ids[0],'blocked'),/blocker/);
+  assert.throws(()=>emailStep(s,'invented'),/existing step/);
+  assert.throws(()=>emailStep(s,ids[0],'in_progress',{notes:'x'.repeat(4001)}),/4,000/);
+  for(const id of ids)s=emailStep(s,id);
+  assert.ok(ids.every(id=>s.orders[0].emailRun.progress[id].status==='completed'));
+  assert.equal(s.orders[0].status,'to_build');assert.equal(s.orders[0].buildRef,'');assert.equal(s.orders[0].testRef,'');assert.deepEqual(s.acceptance,original.acceptance);assert.deepEqual(s.draft,original.draft);assert.deepEqual(s.orders[1],original.orders[1]);
+  s=emailStep(s,ids[0],'in_progress');assert.equal(s.orders[0].emailRun.progress.test.status,'in_progress');assert.equal(s.orders[0].emailRun.progress.test.evidence,'Restricted test evidence reference');
+});
+
+test('email guide revision/reset preserves notes, isolates automation and requires explicit confirmation',()=>{
+  let s=configuredEmail(true);s=change(s,{action:'setup',answers:['Outcome','Systems','Authority']});s=emailStep(s,'authority');s=emailStep(s,'connect-google');
+  s=change(s,{action:'order',key:'email',status:'tested',buildRef:'Actual build',testRef:'Actual tests'});s=change(s,{action:'releaseInternal',key:'email',review:'Reviewed',confirmed:true});
+  const before=structuredClone(s),r=s.orders[0].emailRun;
+  s=change(s,{action:'emailPlaybook',key:'email',emailUpdate:{kind:'configure',config:{...r.config,owner:'Derek'}}});assert.ok(s.orders[0].internalRelease);assert.equal(s.orders[0].emailRun.progress.authority.status,'completed');
+  assert.throws(()=>change(s,{action:'emailPlaybook',key:'email',emailUpdate:{kind:'configure',config:{...r.config,provider:'microsoft'}}}),/Confirm/);
+  s=change(s,{action:'emailPlaybook',key:'email',emailUpdate:{kind:'configure',config:{...r.config,provider:'microsoft'},confirmReset:true}});
+  assert.equal(s.orders[0].status,'to_build');assert.equal(s.orders[0].internalRelease,null);assert.equal(s.orders[0].emailRun.progress.authority.status,'in_progress');assert.match(s.orders[0].emailRun.progress.authority.notes,/paragraph/);assert.deepEqual(s.orders[1],before.orders[1]);
+  s=change(s,{action:'emailPlaybook',key:'email',emailUpdate:{kind:'configure',config:r.config,confirmReset:true}});assert.equal(s.orders[0].emailRun.progress['connect-google'].status,'in_progress');
+  s=emailStep(s,'authority');s=change(s,{action:'setup',answers:['Changed','Systems','Authority'],confirmReset:true});assert.equal(s.orders[0].emailRun.progress.authority.status,'in_progress');assert.match(s.orders[0].emailRun.progress.authority.notes,/paragraph/);
+  s.orders[0].emailRun.version='prior-version';assert.throws(()=>emailStep(s,'authority'),/read-only/);
+});
+
+test('email walkthrough UI prefills saved notes and exposes prerequisites before editable fields',()=>{
+  let s=configuredEmail();s=emailStep(s,'test','blocked',{blocker:'Waiting for test access',notes:'Keep my long saved paragraph.'});
+  const markup=renderToStaticMarkup(React.createElement(EmailWalkthrough,{accountId:'account-one',initialData:{proposal:s},initialStep:'test'}));
+  assert.ok(markup.includes('Keep my long saved paragraph.'));assert.ok(markup.includes('Waiting for test access'));assert.ok(markup.indexOf('Completion is waiting on:')<markup.indexOf('Work notes'));assert.match(markup,/value="completed" disabled=""/);assert.ok(markup.includes('Save progress'));
+  const closed=renderToStaticMarkup(React.createElement(EmailWalkthrough,{accountId:'account-one',initialData:{proposal:s,closed:true},initialStep:'test'}));assert.match(closed,/fieldset disabled=""/);assert.match(closed,/read-only history/);
+});
+
+test('email progress persists with CAS/history, leaves other task timestamps alone, and closed history stays protected',async()=>{
+  const {db,sqlite}=await database();let s=newProposal('Fixture Company',false);
+  async function save(next,action){s=await persistProposal(db,'account-one',s,next,actor,action,crypto.randomUUID());}
+  await save(complete(),'save');await save(change(s,{action:'approve'}),'approve');await save(change(s,{action:'accept',contact:'Client',reference:'Signed quote',date:'2026-09-08'}),'accept');
+  await save(change(s,{action:'setup',answers:['Outcome','Systems','Authority']}),'setup');
+  const config={...emailDefaults(s.draft),mailboxType:'individual',harness:'Harness',owner:'Emily',reviewer:'Human',rules:'Draft only'};
+  await save(change(s,{action:'emailPlaybook',key:'email',emailUpdate:{kind:'configure',config}}),'emailPlaybook');const stale=structuredClone(s);
+  const tasks=sqlite.prepare('SELECT id,status,updated_at FROM onboarding_tasks ORDER BY id').all();
+  await save(emailStep(s,'authority','in_progress',{notes:'Saved detailed work',evidence:''}),'emailPlaybook');
+  assert.equal((await readProposal(db,'account-one')).orders[0].emailRun.progress.authority.notes,'Saved detailed work');assert.deepEqual(sqlite.prepare('SELECT id,status,updated_at FROM onboarding_tasks ORDER BY id').all(),tasks);
+  await assert.rejects(()=>persistProposal(db,'account-one',stale,emailStep(stale,'authority'),actor,'emailPlaybook','stale-guide'),/Another operator/);
+  const history=sqlite.prepare('SELECT state FROM proposal_revisions WHERE account_id=? AND version=?').get('account-one',stale.version);assert.equal(JSON.parse(history.state).orders[0].emailRun.progress.authority,undefined);
+  sqlite.prepare("UPDATE engagements SET status='cancelled' WHERE id=?").run(s.engagementId);
+  await assert.rejects(()=>save(emailStep(s,'authority'),'emailPlaybook'),/closed|Closed/);sqlite.close();
+});
 
 async function database(){const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');for(const file of (await readdir(path.join(root,'drizzle'))).filter(f=>f.endsWith('.sql')).sort()){sqlite.exec(await readFile(path.join(root,'drizzle',file),'utf8'));}sqlite.exec("INSERT INTO accounts(id,name) VALUES('account-one','Fixture Company'),('account-two','Other company')");
  const db={prepare(sql){const statement={values:[],bind(...values){return {...statement,values};},async first(){return sqlite.prepare(sql).get(...this.values)||null;},async all(){return {results:sqlite.prepare(sql).all(...this.values)};},run(){const result=sqlite.prepare(sql).run(...this.values);return {meta:{changes:Number(result.changes)}};}};return statement;},async batch(statements){sqlite.exec('BEGIN');try{const results=statements.map(s=>s.run());sqlite.exec('COMMIT');return results;}catch(e){sqlite.exec('ROLLBACK');throw e;}}};return {sqlite,db};}

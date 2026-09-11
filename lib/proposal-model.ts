@@ -1,14 +1,15 @@
 import { emptyScope, scopeIssues, standardSetupDescription, withBudgetExamples, validScopeDraft, type ScopeDraft, scopedServiceNames } from './proposal-scope';
+import { updateEmailRun, type EmailRun, type EmailUpdate } from './email-playbook';
 
 export type Stamp = { id: string; name: string; email: string; at: string };
-export type WorkOrder = { key: string; serviceId: string; taskId: string; name: string; status: 'to_build' | 'building' | 'built' | 'tested'; buildRef: string; testRef: string; recorded: Stamp | null; setupRevision: number; brief?:string; internalRelease?:{review:string;recorded:Stamp;setupRevision:number}|null };
+export type WorkOrder = { key: string; serviceId: string; taskId: string; name: string; status: 'to_build' | 'building' | 'built' | 'tested'; buildRef: string; testRef: string; recorded: Stamp | null; setupRevision: number; brief?:string; emailRun?:EmailRun; internalRelease?:{review:string;recorded:Stamp;setupRevision:number}|null };
 export type ProposalState = {
   version: number; scopeRevision: number; company: string; internal: boolean; draft: ScopeDraft;
   approval: (Stamp & { revision: number }) | null;
   acceptance: (Stamp & { revision: number; reference: string; date: string; contact: string; internal: boolean }) | null;
   engagementId: string; setup: { answers: string[]; revision: number; recorded: Stamp | null }; orders: WorkOrder[];
 };
-export type ProposalCommand = { action: 'save' | 'approve' | 'accept' | 'authorizeInternal' | 'setup' | 'order' | 'addInternalOrder' | 'releaseInternal' | 'withdrawInternal'; expectedVersion: number; draft?: unknown; reference?: string; date?: string; contact?: string; answers?: unknown; confirmReset?: boolean; key?: string; status?: string; buildRef?: string; testRef?: string; name?:string; brief?:string; review?:string; confirmed?:boolean };
+export type ProposalCommand = { action: 'save' | 'approve' | 'accept' | 'authorizeInternal' | 'setup' | 'order' | 'addInternalOrder' | 'releaseInternal' | 'withdrawInternal' | 'emailPlaybook'; expectedVersion: number; draft?: unknown; reference?: string; date?: string; contact?: string; answers?: unknown; confirmReset?: boolean; key?: string; status?: string; buildRef?: string; testRef?: string; name?:string; brief?:string; review?:string; confirmed?:boolean; emailUpdate?:EmailUpdate };
 export class ProposalError extends Error { constructor(message: string, public status = 400) { super(message); } }
 export function newProposal(company: string, internal: boolean): ProposalState {
   return { version: 0, scopeRevision: 0, company, internal, draft: { ...withBudgetExamples(emptyScope()), setupDescription: standardSetupDescription, pricingMode: 'package' }, approval: null, acceptance: null, engagementId: '', setup: { answers: ['', '', ''], revision: 0, recorded: null }, orders: [] };
@@ -45,6 +46,26 @@ export function transitionProposal(current: ProposalState, command: ProposalComm
     if (s.orders.some(o => o.status !== 'to_build') && command.confirmReset !== true) throw new ProposalError('Confirm that changing setup returns this package’s work orders to To build for revalidation.', 409);
     s.setup = { answers, revision: s.setup.revision + 1, recorded: actor };
     s.orders = s.orders.map(o => ({ ...o, status: 'to_build', buildRef: '', testRef: '', recorded: null, setupRevision: s.setup.revision, ...(s.internal?{internalRelease:null}:{}) }));
+    for (const order of s.orders) if (order.emailRun) {
+      order.emailRun.setupRevision = s.setup.revision;
+      for (const progress of Object.values(order.emailRun.progress)) {
+        if (progress.status === 'completed') progress.status = 'in_progress';
+      }
+      order.emailRun.updated = actor;
+    }
+  } else if (command.action === 'emailPlaybook') {
+    if (!s.acceptance) throw new ProposalError('Record acceptance or internal authorization before starting delivery guidance.');
+    const order = s.orders.find(o => o.key === command.key && o.key === 'email');
+    if (!order || !command.emailUpdate) throw new ProposalError('Choose the scoped Email assistance work order.');
+    let run: EmailRun;
+    try { run = updateEmailRun(order.emailRun, command.emailUpdate, s.draft, s.setup.revision, actor); }
+    catch (error) { throw new ProposalError((error as Error).message); }
+    const changed = command.emailUpdate.kind === 'configure' && order.emailRun && Object.keys(run.config).some(k => k !== 'owner' && run.config[k as keyof typeof run.config] !== order.emailRun!.config[k as keyof typeof run.config]);
+    if (changed && order.status !== 'to_build') {
+      if (command.emailUpdate.kind !== 'configure' || !command.emailUpdate.confirmReset) throw new ProposalError('Confirm that changed configuration returns this email work order to To build and withdraws its use approval. Previous evidence remains in history.',409);
+      order.status = 'to_build'; order.buildRef = ''; order.testRef = ''; order.recorded = null; order.internalRelease = null;
+    }
+    order.emailRun = run;
   } else if (['addInternalOrder','releaseInternal','withdrawInternal'].includes(command.action)) {
     if(!s.internal||!s.acceptance?.internal)throw new ProposalError('This action requires an authorized internal organization.',403);
     if(command.action==='addInternalOrder') {
