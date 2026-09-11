@@ -4,6 +4,8 @@ import { accounts, accountServices, automationInstallations, serviceInstallation
 import { newId } from "../../../../../lib/ops-domain.mjs";
 import { serviceInput } from "../../../../../lib/service-input";
 import { auditActor, getOperatorIdentity, operatorRequiredResponse } from "../../../../../lib/server/operator-auth";
+import { readProposal } from '@/lib/server/proposal-store';
+import { managedService } from '@/lib/workflow-ux';
 
 type Context = { params: Promise<{ id: string }> };
 export async function GET(request: Request, { params }: Context) {
@@ -12,7 +14,8 @@ export async function GET(request: Request, { params }: Context) {
   const db = getDb();
   const rows = await db.select().from(accountServices).where(eq(accountServices.accountId, id)).orderBy(asc(accountServices.name));
   const links = rows.length ? await db.select().from(serviceInstallations).where(inArray(serviceInstallations.serviceId, rows.map(r => r.id))) : [];
-  return Response.json({ services: rows.map(row => ({ ...row, installationIds: links.filter(l => l.serviceId === row.id).map(l => l.installationId) })) }, { headers: { "cache-control": "no-store" } });
+  const proposal=await readProposal(getRawDb(),id);
+  return Response.json({ services: rows.map(row => ({ ...row, delivery:managedService(proposal,row.id), installationIds: links.filter(l => l.serviceId === row.id).map(l => l.installationId) })) }, { headers: { "cache-control": "no-store" } });
 }
 
 async function save(request: Request, { params }: Context) {

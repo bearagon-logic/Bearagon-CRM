@@ -1,5 +1,7 @@
 import { and, desc, eq, sql } from "drizzle-orm";
-import { getDb } from "@/db";
+import { getDb, getRawDb } from "@/db";
+import { handoffInquiry } from '@/lib/server/inquiry-handoff';
+import { z } from 'zod';
 import { accounts, contacts, accountContacts, inquiries, operatorAuditEvents } from "@/db/schema";
 import { auditActor, getOperatorIdentity, operatorRequiredResponse } from "@/lib/server/operator-auth";
 import { inquiryCreateInput, inquiryUpdateInput } from "@/lib/inquiry-input";
@@ -63,7 +65,14 @@ export async function recordInquiry(request: Request, capturedSource?: string) {
 export async function PATCH(request: Request) {
   const actor = await getOperatorIdentity(request);
   if (!actor) return operatorRequiredResponse();
-  const parsed = inquiryUpdateInput.safeParse(await request.json().catch(() => null));
+  const body=await request.json().catch(()=>null);
+  if(body&&typeof body==='object'&&'action' in body&&body.action==='handoff') {
+    const input=z.object({id:z.string().min(1).max(100),accountId:z.string().min(1).max(100),expectedUpdatedAt:z.string().min(1).max(100)}).safeParse(body);
+    if(!input.success)return Response.json({error:'Select a saved inquiry before handing it off.'},{status:400});
+    const saved=await handoffInquiry(getRawDb(),input.data,actor);
+    return saved?Response.json({saved:true}):Response.json({error:'This inquiry changed or was already resolved. Reload and review it before retrying.'},{status:409});
+  }
+  const parsed = inquiryUpdateInput.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.issues[0].message }, { status: 400 });
   const { id, ...values } = parsed.data, db = getDb();
   const [existing] = await db.select().from(inquiries).where(eq(inquiries.id, id));

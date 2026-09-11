@@ -33,7 +33,7 @@ export async function persistProposal(db: DB, accountId: string, before: Proposa
       statements.push(guarded(`INSERT INTO engagements(id,account_id,kind,status,stage,next_step,owner,updated_at) SELECT ?,?,'onboarding','active','intake','Complete guided setup',?,? WHERE ${gate}`, [next.engagementId,accountId,actor.name,actor.at]));
       for (const [i, task] of onboardingTemplate.entries()) statements.push(guarded(`INSERT INTO onboarding_tasks(id,engagement_id,template_key,title,description,sort_order) SELECT ?,?,?,?,?,? WHERE ${gate}`, [`task_${crypto.randomUUID()}`,next.engagementId,task.key,task.title,task.description,i+1]));
     }
-    statements.push(guarded(`UPDATE accounts SET relationship_type=?,updated_at=? WHERE id=? AND ${gate}`, [next.internal?'other':'client',actor.at,accountId]));
+    statements.push(guarded(`UPDATE accounts SET relationship_type=?,sales_stage=CASE WHEN organization_kind='internal' THEN sales_stage ELSE 'won' END,updated_at=? WHERE id=? AND ${gate}`, [next.internal?'other':'client',actor.at,accountId]));
     const quote = customerQuote(next.draft);
     for (const [i, order] of next.orders.entries()) {
       const line = quote.services.find(s => s.id === order.key)!;

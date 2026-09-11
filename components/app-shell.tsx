@@ -49,7 +49,7 @@ function NavLink({ item, pathname, close }: { item: NavItem; pathname: string; c
   const Icon = item.icon;
   const current = isCurrent(pathname, item);
   return (
-    <Link href={item.href} className={current ? "active" : ""} aria-current={current ? "page" : undefined} onClick={close}>
+    <Link href={item.href} aria-label={item.label} title={item.label} className={current ? "active" : ""} aria-current={current ? "page" : undefined} onClick={close}>
       <Icon aria-hidden="true" />
       <span>{item.label}</span>
       <ChevronRight className="ops-nav-chevron" aria-hidden="true" />
@@ -76,7 +76,7 @@ export function AppShell({ children, activeSection }: { children: React.ReactNod
             {menuOpen ? <X aria-hidden="true" /> : <Menu aria-hidden="true" />}
           </button>
         </div>
-        <Link href="/companies?newAccount=1" className="ops-add-account" onClick={() => setMenuOpen(false)}><Plus aria-hidden="true" /><span>Add company</span></Link>
+        <Link href="/companies?newAccount=1" aria-label="Add company" title="Add company" className="ops-add-account" onClick={() => setMenuOpen(false)}><Plus aria-hidden="true" /><span>Add company</span></Link>
         <nav className="ops-navigation" aria-label="Operations navigation">
           <div className="ops-nav-group"><small>WORKSPACE</small>{workspaceItems.map((item) => <NavLink key={item.label} item={item} pathname={activePath} close={() => setMenuOpen(false)} />)}</div>
           <div className="ops-nav-group ops-nav-system"><small>RESOURCES & SETTINGS</small>{systemItems.map((item) => <NavLink key={item.label} item={item} pathname={activePath} close={() => setMenuOpen(false)} />)}</div>

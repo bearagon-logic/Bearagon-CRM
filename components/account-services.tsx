@@ -11,6 +11,7 @@ import { serviceObservation } from "@/lib/service-observation";
 import type { WorkspaceAutomationOverview } from "@/lib/contracts/platform";
 
 type Service = {
+  delivery?: ReturnType<typeof import('@/lib/workflow-ux').managedService>;
   id: string; name: string; status: string; quoteRef: string; acceptedAt: string;
   setupFeeCents: number | null; monthlyFeeCents: number | null; currency: string;
   scope: string; maintenance: string; configuration: string; startDate: string; endDate: string; installationIds: string[];
@@ -19,6 +20,13 @@ type Installation = { id: string; name: string; description: string; trigger: st
 type Status = { state: string; message?: string; workspace?: { displayName: string; consoleClientId: string }; overview?: WorkspaceAutomationOverview };
 const blank: Service = { id: "", name: "", status: "proposed", quoteRef: "", acceptedAt: "", setupFeeCents: null, monthlyFeeCents: null, currency: "USD", scope: "", maintenance: "", configuration: "", startDate: "", endDate: "", installationIds: [] };
 function money(cents: number | null, currency: string) { return cents === null ? "Not recorded" : new Intl.NumberFormat("en-US", { style: "currency", currency }).format(cents / 100); }
+function servicePrice(s:Service, kind:'setup'|'monthly') {
+  const value=kind==='setup'?s.setupFeeCents:s.monthlyFeeCents;
+  if(value!==null)return money(value,s.currency);
+  if(s.delivery?.internal)return 'Internal service · no customer charge';
+  if(s.delivery&&(kind==='setup'||s.delivery.packagePricing))return 'Included in accepted package';
+  return 'Not recorded';
+}
 function when(value?: string) { return value ? new Date(value).toLocaleString() : "No run received"; }
 function quoteLink(ref: string) { return /^https?:\/\//i.test(ref) ? <a href={ref} target="_blank" rel="noreferrer">View quote ↗</a> : ref || "No quote recorded"; }
 
@@ -26,7 +34,7 @@ export function ServiceSummary({ accountId, openServices }: { accountId: string;
   const [services, setServices] = useState<Service[] | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => { let active = true; fetch(`/api/clients/${accountId}/services`).then(async r => { if (!r.ok) throw new Error(); const data = await r.json() as { services: Service[] }; if (active) setServices(data.services); }).catch(() => { if (active) setFailed(true); }); return () => { active = false; }; }, [accountId]);
-  return <article className="service-panel"><div className="service-panel-heading"><div><h2>Customer services</h2><p>{failed ? "Services could not be loaded." : !services ? "Loading services…" : services.length ? `${services.filter(s => s.status === "active").length} active · ${services.filter(s => s.status === "ordered").length} ordered · ${services.filter(s => s.status === "proposed").length} proposed` : "No purchased services recorded yet."}</p></div><button onClick={openServices}>Services &amp; automations →</button></div>{services?.filter(s => s.status !== "ended").map(s => <p key={s.id}><b>{s.name}</b> · {s.status} · {money(s.monthlyFeeCents, s.currency)} / month</p>)}</article>;
+  return <article className="service-panel"><div className="service-panel-heading"><div><h2>Customer services</h2><p>{failed ? "Services could not be loaded." : !services ? "Loading services…" : services.length ? `${services.filter(s => s.status === "active").length} active · ${services.filter(s => s.status === "ordered").length} ordered · ${services.filter(s => s.status === "proposed").length} proposed` : "No purchased services recorded yet."}</p></div><button onClick={openServices}>Services &amp; automations →</button></div>{services?.filter(s => s.status !== "ended").map(s => <p key={s.id}><b>{s.name}</b> · {s.status} · {servicePrice(s,'monthly')}</p>)}</article>;
 }
 
 export function AccountServices({ accountId, companyName }: { accountId: string; companyName: string }) {
@@ -77,6 +85,7 @@ export function AccountServices({ accountId, companyName }: { accountId: string;
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to match automation."); }
     finally { setBusy(false); }
   }
+  const acceptedPackage=services.find(s=>s.delivery)?.delivery;
   const linkedIds = new Set(services.flatMap(s => s.installationIds));
   const unmatched = overview?.automations.filter(a => !installations.some(i => i.consoleAutomationId === a.slug || i.consoleAutomationId === a.id)) ?? [];
   function automationRow(i: Installation) {
@@ -88,16 +97,18 @@ export function AccountServices({ accountId, companyName }: { accountId: string;
     </div>;
   }
   return <section className="services-page account-services">
-    <header className="service-panel-heading"><div><h2>Services &amp; automations</h2><p>{companyName}’s purchased scope, delivery configuration, and running systems.</p></div><button onClick={() => { setDraft({ ...blank }); setEditError(""); }} disabled={loading || Boolean(error)}>Add service</button></header>
+    <header className="service-panel-heading"><div><h2>Services &amp; automations</h2><p>Build readiness, linked installations and Console observations.</p></div><button onClick={() => { setDraft({ ...blank }); setEditError(""); }} disabled={loading || Boolean(error)}>Add service</button></header>
     <div className="service-panel console-summary"><div><h3>{loading ? "Checking Console…" : overview ? "Console data received" : "Console data not available"}</h3><p>{overview ? `Workspace ${status?.workspace?.displayName || overview.consoleClientId} · Retrieved ${when(overview.fetchedAt)}${stale ? " · Refresh to check current state" : ""}` : status?.message || "Checking account connection…"}</p>{overview && <p>{overview.automations.length} automations · {overview.runs.length} recent runs received · {overview.connectors.length} connectors</p>}</div><div className="service-actions"><button onClick={load} disabled={loading || busy}>Refresh data</button><button onClick={() => setShowConnection(!showConnection)}>{showConnection ? "Hide connection" : "Workspace connection"}</button></div></div>
+    {!loading&&services.length>0&&<section className="service-panel"><h3>Delivery & reporting at a glance</h3><div className="service-progress-table"><table><thead><tr><th>Service</th><th>Build & test</th><th>Installation</th><th>Console observation</th><th>Next action</th></tr></thead><tbody>{services.map(s=>{const linked=installations.filter(i=>s.installationIds.includes(i.id));return <tr key={s.id}><th scope="row">{s.name}<small>{s.status}</small></th><td>{s.delivery?(s.delivery.current?s.delivery.order.status.replaceAll('_',' '):'Revalidation required'):'No package evidence'}<small>{s.delivery?`Setup revision ${s.delivery.order.setupRevision}`:''}</small></td><td>{s.installationIds.length?`${s.installationIds.length} linked`:'Not linked'}</td><td>{linked.length?linked.map(i=><div key={i.id}>{i.name}: {serviceObservation(i,overview).label}{stale?' · stale snapshot':''}</div>):'Unknown · no installation linked'}</td><td>{!s.installationIds.length?<Button variant="outline" onClick={()=>{setDraft(s);setEditError('');}}>Link installation</Button>:<a href={`#service-${s.id}`}>Review reports ↓</a>}<Link href={`/clients/${accountId}?tab=delivery`}>View build evidence →</Link></td></tr>;})}</tbody></table></div></section>}
+    {acceptedPackage&&!acceptedPackage.internal&&<section className="service-panel accepted-package"><h3>Accepted package · scope revision {acceptedPackage.scopeRevision}</h3><dl className="service-facts"><div><dt>One-time setup</dt><dd>{money(acceptedPackage.setup,'USD')}</dd></div><div><dt>Monthly package · billed in advance</dt><dd>{money(acceptedPackage.monthly,'USD')}</dd></div></dl><p>Package totals—not additional charges per service. <Link href={`/clients/${accountId}?tab=services&step=review`}>Review agreed scope and usage limits →</Link></p></section>}
     {showConnection && <ConsoleConnection accountId={accountId} onLinked={load} />}
     {error && <p className="service-error" role="alert">{error}</p>}<p role="status">{message}</p>
     {!loading && !services.length && !error && <article className="service-panel service-empty"><h3>Record what this company purchased</h3><p>Add the service, accepted quote, setup fee, monthly fee, and agreed configuration. Then associate the automations that deliver it.</p><button onClick={() => { setDraft({ ...blank }); setEditError(""); }}>Add first service</button></article>}
-    {services.map(s => <article className="service-panel" key={s.id}>
+    {services.map(s => <article className="service-panel" id={`service-${s.id}`} key={s.id}>
       <div className="service-panel-heading"><div><span className={`service-badge ${s.status}`}>{s.status}</span><h3>{s.name}</h3></div><button onClick={() => { setDraft(s); setEditError(""); }} disabled={busy || loading}>Edit service</button></div>
-      <dl className="service-facts"><div><dt>Quote / agreement</dt><dd>{quoteLink(s.quoteRef)}</dd><dd>{s.acceptedAt ? `Accepted ${s.acceptedAt}` : "Acceptance not recorded"}</dd></div><div><dt>Setup fee</dt><dd>{money(s.setupFeeCents, s.currency)}</dd></div><div><dt>Monthly service</dt><dd>{money(s.monthlyFeeCents, s.currency)}</dd><dd>Billed in advance</dd></div><div><dt>Service period</dt><dd>{s.startDate || "Start not set"} → {s.endDate || "Ongoing"}</dd></div></dl>
-      <div className="service-scope"><div><h4>Purchased scope</h4><p>{s.scope || "Not recorded"}</p><h4>Included maintenance</h4><p>{s.maintenance || "Not recorded"}</p></div><div><h4>Agreed configuration</h4><p>{s.configuration || "Record the intended outcome, systems, schedule, and approval rules."}</p></div></div>
-      <h4>Automations delivering this service</h4>{s.installationIds.length ? installations.filter(i => s.installationIds.includes(i.id)).map(automationRow) : <p>No automation linked yet. Create the automation, then select it in Edit service.</p>}
+      <dl className="service-facts"><div><dt>Quote / agreement</dt><dd>{quoteLink(s.quoteRef)}</dd><dd>{s.acceptedAt ? `Accepted ${s.acceptedAt}` : "Acceptance not recorded"}</dd></div><div><dt>Setup fee</dt><dd>{servicePrice(s,'setup')}</dd></div><div><dt>Monthly service</dt><dd>{servicePrice(s,'monthly')}</dd><dd>Billed in advance</dd></div><div><dt>Service period</dt><dd>{s.startDate || "Start not set"} → {s.endDate || "Ongoing"}</dd></div></dl>
+      <details className="service-scope-details"><summary>Agreed scope & configuration</summary><div className="service-scope"><div><h4>Purchased scope</h4><p>{s.scope || "Not recorded"}</p><h4>Included maintenance</h4><p>{s.maintenance || "Not recorded"}</p></div><div><h4>Agreed configuration</h4><p>{s.configuration || "Record the intended outcome, systems, schedule, and approval rules."}</p></div></div>
+      </details><h4>Automations delivering this service</h4>{s.installationIds.length ? installations.filter(i => s.installationIds.includes(i.id)).map(automationRow) : <p>No automation linked yet. Create the automation, then select it in Edit service.</p>}
       <Link href={`/automations?view=create&accountId=${encodeURIComponent(accountId)}&returnTo=${encodeURIComponent(`/clients/${accountId}?tab=automations`)}`}>Create automation for this company ↗</Link>
     </article>)}
     {installations.some(i => !linkedIds.has(i.id)) && <article className="service-panel"><h3>Automations without a service assignment</h3><p>Assign these to purchased scope using Edit service.</p>{installations.filter(i => !linkedIds.has(i.id)).map(automationRow)}</article>}

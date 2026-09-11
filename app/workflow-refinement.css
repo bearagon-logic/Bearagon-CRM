@@ -1,0 +1,53 @@
+/* Audit refinement: keep Bearagon's identity; let the work lead. */
+@media (min-width: 761px) and (max-width: 1080px) {
+  .ops-app-shell { display:grid; grid-template-columns:208px minmax(0,1fr); }
+  .ops-sidebar { height:100dvh; padding-inline:12px; }
+  .ops-sidebar-top { justify-content:flex-start; }
+  .ops-brand span, .ops-sidebar-footer > span:last-child { display:grid; }
+  .ops-add-account span, .ops-nav-group > small, .ops-sidebar .ops-navigation a span { display:block; }
+  .ops-add-account { width:auto; margin:16px 0; }
+  .ops-sidebar .ops-navigation a { justify-content:flex-start; padding:0 12px; gap:10px; }
+  .ops-sidebar-footer { justify-content:flex-start; gap:10px; }
+  .ops-brand { gap:10px; }
+}
+.queue-item { display:flex; align-items:center; border-bottom:1px solid #e1eaf2; }
+.queue-item:last-child { border-bottom:0; }
+.queue-item .lane-work-row { flex:1; padding:16px 20px; min-width:0; border:0; }
+.queue-row-menu { flex:none; position:relative; margin-right:16px; font-size:.875rem; }
+.queue-row-menu > summary { cursor:pointer; padding:8px; color:#285f83; border:1px solid #ccdce8; border-radius:8px; }
+.queue-row-menu[open] { padding:8px; border:1px solid #ccdce8; border-radius:8px; background:#f4f8fc; }
+.queue-row-menu .inquiry-cleanup-trigger { margin-top:8px; }
+.lane-panel-heading { flex-wrap:wrap; gap:12px 18px; }
+.lane-panel-heading > h2 { margin-right:auto; }
+.company-panel label small, .relationship-body label small { display:block; font-size:.8125rem; font-weight:400; line-height:1.5; margin:6px 0 12px; }
+.company-requirement small { white-space:pre-line; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.company-requirement em { font-size:.875rem; }
+.company-panel h2, .proposal-card h2 { line-height:1.35; }
+.company-actions { flex-wrap:wrap; gap:12px; }
+.service-progress-table { overflow-x:auto; margin-top:16px; }
+.service-progress-table table { width:100%; border-collapse:collapse; font-size:.875rem; }
+.service-progress-table th, .service-progress-table td { text-align:left; padding:14px 12px; vertical-align:top; border-bottom:1px solid #dce6ed; min-width:120px; }
+.service-progress-table th { font-weight:650; color:#173b58; }
+.service-progress-table thead { background:#edf5fa; }
+.service-progress-table small, .service-progress-table td a { display:block; margin-top:6px; font-size:.8125rem; }
+.service-scope-details { margin:16px 0; border-top:1px solid #dce6ed; border-bottom:1px solid #dce6ed; }
+.service-scope-details summary { cursor:pointer; padding:14px 0; font-weight:650; font-size:.9375rem; color:#215c84; }
+.service-panel { scroll-margin-top:24px; }
+.accepted-package { border-left:4px solid var(--ember-base,#b84323); }
+.accepted-package .service-facts { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.account-services > .service-panel-heading { margin-bottom:16px; }
+.account-services > .service-panel-heading > div { min-width:0; flex:1; }
+.account-services > .service-panel-heading > button { white-space:nowrap; flex-shrink:0; }
+.account-services .console-summary .service-actions { display:flex; flex-wrap:wrap; gap:8px; }
+.crm-dialog { width:min(640px,calc(100vw - 32px)); }
+.crm-dialog fieldset:disabled { opacity:1; }
+.crm-dialog fieldset:disabled input, .crm-dialog fieldset:disabled textarea, .crm-dialog fieldset:disabled select { opacity:1; color:#25475f; background:#f3f7fa; cursor:default; }
+.proposal-history-dialog { width:min(900px,calc(100vw - 32px)); }
+.proposal-actions { position:sticky; bottom:0; z-index:5; background:#f4f8fcf5; border:1px solid #d2e0eb; padding:16px; box-shadow:0 -4px 16px #12345108; }
+.proposal-page input, .proposal-page textarea, .proposal-page select { scroll-margin-block:130px; }
+@media (max-width:760px) {
+  .queue-item { flex-wrap:wrap; }
+  .queue-row-menu { margin:0 16px 12px auto; }
+  .queue-item .lane-work-row { flex-basis:100%; }
+  .proposal-actions { position:static; }
+}

@@ -39,6 +39,8 @@ export async function POST(request:Request,{params}:Context){
     const stamp={id:actor.userId,name:actor.displayName,email:actor.email,at:new Date().toISOString()};
     const next=transitionProposal(before,command,stamp,()=>crypto.randomUUID());
     if(next===before)return json({proposal:before});
-    return json({proposal:await persistProposal(db,id,before,next,stamp,command.action,crypto.randomUUID())});
+    const saved=await persistProposal(db,id,before,next,stamp,command.action,crypto.randomUUID());
+    const history=await db.prepare('SELECT version,action,actor_email,created_at FROM proposal_revisions WHERE account_id=? ORDER BY version DESC LIMIT 40').bind(id).all();
+    return json({proposal:saved,history:history.results});
   }catch(error){if(error instanceof ProposalError)return json({error:error.message},error.status);console.error(JSON.stringify({event:'proposal.write_failed'}));return json({error:'The change could not be committed. Reload the record before retrying.'},500);}
 }
