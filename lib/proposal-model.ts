@@ -60,7 +60,7 @@ export function transitionProposal(current: ProposalState, command: ProposalComm
     let run: EmailRun;
     try { run = updateEmailRun(order.emailRun, command.emailUpdate, s.draft, s.setup.revision, actor); }
     catch (error) { throw new ProposalError((error as Error).message); }
-    const changed = command.emailUpdate.kind === 'configure' && order.emailRun && Object.keys(run.config).some(k => k !== 'owner' && run.config[k as keyof typeof run.config] !== order.emailRun!.config[k as keyof typeof run.config]);
+    const changed = command.emailUpdate.kind === 'configure' && order.emailRun && (run.version !== order.emailRun.version || Object.keys(run.config).some(k => k !== 'owner' && run.config[k as keyof typeof run.config] !== order.emailRun!.config[k as keyof typeof run.config]));
     if (changed && order.status !== 'to_build') {
       if (command.emailUpdate.kind !== 'configure' || !command.emailUpdate.confirmReset) throw new ProposalError('Confirm that changed configuration returns this email work order to To build and withdraws its use approval. Previous evidence remains in history.',409);
       order.status = 'to_build'; order.buildRef = ''; order.testRef = ''; order.recorded = null; order.internalRelease = null;

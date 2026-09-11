@@ -15,7 +15,7 @@ const {serviceCatalog,cents,scopeIssues}=await vite.ssrLoadModule('/lib/proposal
 const {persistProposal,readProposal}=await vite.ssrLoadModule('/lib/server/proposal-store.ts');
 const {internalStage,internalBacklog}=await vite.ssrLoadModule('/lib/internal-operations.ts');
 const {journeyPhase}=await vite.ssrLoadModule('/lib/company-journey.ts');
-const {emailDefaults,emailSteps,emailGuideVersion}=await vite.ssrLoadModule('/lib/email-playbook.ts');
+const {emailDefaults,emailSteps,emailGuideVersion,buildEmailBrief}=await vite.ssrLoadModule('/lib/email-playbook.ts');
 const {EmailWalkthrough}=await vite.ssrLoadModule('/components/email-walkthrough.tsx');
 const actor={id:'employee-1',name:'Test reviewer',email:'reviewer@example.test',at:'2026-09-08T12:00:00.000Z'};
 
@@ -56,6 +56,25 @@ function accepted(internal=false){let s=change(complete(internal),{action:'appro
 
 function configuredEmail(internal=false){let s=accepted(internal);return change(s,{action:'emailPlaybook',key:'email',emailUpdate:{kind:'configure',config:{...emailDefaults(s.draft),mailboxType:'individual',harness:'Reviewed test harness / connector',owner:'Emily',reviewer:'Company reviewer',rules:'Draft only; excluded topics escalate'}}});}
 function emailStep(s,id,status='completed',extra={}){return change(s,{action:'emailPlaybook',key:'email',emailUpdate:{kind:'step',stepId:id,status,notes:'A paragraph of implementation notes to preserve.',evidence:'Restricted test evidence reference',blocker:'',...extra}});}
+
+test('Codex is the new default with provider-aware preflight and a no-send task prompt',()=>{
+  const c={...emailDefaults(accepted().draft),mailboxType:'individual',harness:'Codex — Gmail'};
+  assert.equal(emailDefaults(accepted().draft).harness,'Codex');
+  const steps=emailSteps(c);assert.match(steps.find(s=>s.id==='build').title,/Codex/);assert.match(steps.find(s=>s.id==='connect-google').instructions[0],/Plugins tab/);
+  assert.match(emailSteps({...c,provider:'microsoft'}).find(s=>s.id==='connect-microsoft').instructions[0],/If the plugin or required action is unavailable/);
+  const prompt=buildEmailBrief('Test company',c);assert.match(prompt,/CODEX TASK/);assert.match(prompt,/Do not send mail/);assert.match(prompt,/capability and identity preflight/);
+  assert.doesNotMatch(buildEmailBrief('Test company',{...c,harness:'Another approved harness'}),/CODEX TASK/);
+});
+
+test('existing guide snapshots stay editable without silent upgrade; explicit upgrade preserves notes and revalidates',()=>{
+  let s=configuredEmail();s=emailStep(s,'authority');s.orders[0].emailRun.version='email-2026-09-11.1';
+  const snapshot=structuredClone(s.orders[0].emailRun.steps);
+  s=emailStep(s,'connect-google','in_progress');assert.equal(s.orders[0].emailRun.version,'email-2026-09-11.1');assert.deepEqual(s.orders[0].emailRun.steps,snapshot);
+  const config={...s.orders[0].emailRun.config,harness:'Codex'};
+  assert.throws(()=>change(s,{action:'emailPlaybook',key:'email',emailUpdate:{kind:'configure',config}}),/Confirm revalidation/);
+  s=change(s,{action:'emailPlaybook',key:'email',emailUpdate:{kind:'configure',config,confirmReset:true}});
+  assert.equal(s.orders[0].emailRun.version,emailGuideVersion);assert.equal(s.orders[0].emailRun.progress.authority.status,'in_progress');assert.match(s.orders[0].emailRun.progress.authority.notes,/paragraph/);
+});
 
 test('email guide branches by provider and mailbox type, defaults safely and strips unknown input',()=>{
   let s=configuredEmail();let r=s.orders[0].emailRun;

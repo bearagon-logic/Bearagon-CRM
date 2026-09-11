@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
-import { emailDefaults, emailConfigIssues, emailGuideVersion, buildEmailBrief, roster, type EmailConfig, type EmailUpdate, type StepProgress } from '@/lib/email-playbook';
+import { emailDefaults, emailConfigIssues, emailGuideVersion, supportedEmailGuide, usesCodex, buildEmailBrief, roster, type EmailConfig, type EmailUpdate, type StepProgress } from '@/lib/email-playbook';
 import type { ProposalState } from '@/lib/proposal-model';
 
 type Payload = { proposal: ProposalState; closed?: boolean; archived?: boolean; error?: string };
@@ -25,13 +25,14 @@ export function EmailWalkthrough({accountId,initialData,initialStep='configurati
   const heading=useRef<HTMLHeadingElement>(null);
   const proposal=data?.proposal, order=proposal?.orders.find(o=>o.key==='email'), run=order?.emailRun;
   const dirty=active==='configuration'?!!config&&JSON.stringify(config)!==draftBase:JSON.stringify(entry)!==entryBase;
-  const readOnly=!!data?.closed||!!data?.archived||!!run&&run.version!==emailGuideVersion;
+  const readOnly=!!data?.closed||!!data?.archived||!!run&&!supportedEmailGuide(run.version);
   const steps=run?.steps||[],current=steps.find(s=>s.id===active),index=steps.findIndex(s=>s.id===active);
   const prerequisites=steps.slice(0,index).filter(s=>run?.progress[s.id]?.status!=='completed');
   const configIssues=run?emailConfigIssues(run.config):[];
   const completed=steps.filter(s=>run?.progress[s.id]?.status==='completed').length;
   const changedFields=config&&run?(Object.keys(config) as (keyof EmailConfig)[]).filter(k=>config[k]!==run.config[k]):[];
-  const technicalChange=changedFields.some(k=>k!=='owner');
+  const guideUpgrade=!!run&&run.version!==emailGuideVersion&&supportedEmailGuide(run.version);
+  const technicalChange=changedFields.some(k=>k!=='owner')||guideUpgrade;
   const needsReset=!!run&&technicalChange&&(Object.keys(run.progress).length>0||order?.status!=='to_build');
 
   function show(p:Payload, target:string) {
@@ -75,13 +76,15 @@ export function EmailWalkthrough({accountId,initialData,initialStep='configurati
       <section className="walkthrough-main"><div className="walkthrough-section-title"><h2 ref={heading} tabIndex={-1}>{active==='configuration'?'Confirm the implementation route':current?.title}</h2><span>{dirty?'Unsaved edits':`Saved record v${proposal.version}`}</span></div>
         {active==='configuration'?<form onSubmit={e=>{e.preventDefault();void save({kind:'configure',config,confirmReset:revalidate},true);}}>
           <p>Scope information is prefilled where available. Complete the remaining details, or save and come back. These answers do not change accepted commercial scope.</p>
+          {guideUpgrade&&<p className="walkthrough-prerequisites">A newer guide includes the Codex delivery route. Your saved instructions remain unchanged until you save configuration; that save upgrades the guide and requires revalidation of recorded work.</p>}
           <fieldset disabled={busy||readOnly}><div className="walkthrough-fields">
             <label>Email provider<select value={config.provider} onChange={e=>setConfig({...config,provider:e.target.value as EmailConfig['provider']})}><option value="">Choose provider</option><option value="google">Google Workspace / Gmail</option><option value="microsoft">Microsoft 365 / Outlook</option></select></label>
             <label>Mailbox arrangement<select value={config.mailboxType} onChange={e=>setConfig({...config,mailboxType:e.target.value as EmailConfig['mailboxType']})}><option value="">Choose arrangement</option><option value="individual">Individual mailbox(es)</option><option value="shared">Shared / delegated mailbox</option></select></label>
             <label>Bearagon delivery owner<select value={config.owner} onChange={e=>setConfig({...config,owner:e.target.value})}><option value="">Assign an owner</option>{roster.map(n=><option key={n}>{n}</option>)}</select></label>
             <label>Reply authority<select value={config.mode} onChange={e=>setConfig({...config,mode:e.target.value as EmailConfig['mode']})}><option value="draft">Draft for human review</option><option value="auto" disabled={proposal.draft.services.email?.config.mode!=='Approved narrow auto-replies'}>Approved narrow auto-replies</option></select></label>
             <label className="walkthrough-wide">Mailbox names / users / expected volume<Textarea value={config.mailboxes} maxLength={2000} onChange={e=>setConfig({...config,mailboxes:e.target.value})}/></label>
-            <label className="walkthrough-wide">Harness, connector and setup approach<Input value={config.harness} maxLength={2000} placeholder="Name the platform, connector and documentation reference" onChange={e=>setConfig({...config,harness:e.target.value})}/><small>Connector capabilities differ. This first guide branches by email provider; verify your chosen harness’s exact setup instructions.</small></label>
+            <label className="walkthrough-wide">Harness, connector and setup approach<Input value={config.harness} maxLength={2000} placeholder="Codex — add the approved mailbox connection details" onChange={e=>setConfig({...config,harness:e.target.value})}/><small>Codex is Bearagon’s preferred harness. Keep the name at the start (for example, Codex — Gmail) to use its guided route. Saved alternatives are preserved.</small></label>
+            {usesCodex(config)&&<div className="walkthrough-success walkthrough-wide"><b>Codex-led delivery</b><p>The guide covers the company project, mailbox identity and plugin checks, a copyable Codex task prompt, synthetic tests, and a separately verified recurring runtime. It does not assume a shared mailbox or unattended schedule works merely because a plugin is installed.</p></div>}
             <label className="walkthrough-wide">Human reply reviewer & fallback contact<Input value={config.reviewer} maxLength={2000} onChange={e=>setConfig({...config,reviewer:e.target.value})}/></label>
             <label className="walkthrough-wide">Routing, reply tone, exclusions & fallback<Textarea rows={5} value={config.rules} maxLength={2000} onChange={e=>setConfig({...config,rules:e.target.value})}/></label>
           </div><p className="company-help">Mixed ecosystems: this pilot tracks one provider route per email work order. Use a reviewed custom build for mixed-provider installations. No credentials or private message bodies.</p>
@@ -109,7 +112,7 @@ export function EmailWalkthrough({accountId,initialData,initialStep='configurati
         {compare&&<details open className="walkthrough-comparison"><summary>Latest saved values — compare with your unsaved fields above</summary><pre>{JSON.stringify(active==='configuration'?run?.config:run?.progress[active],null,2)||'No saved values yet.'}</pre></details>}
         {steps.length>0&&completed===steps.length&&<div className="walkthrough-success"><h3>Walkthrough recorded. Ready for the delivery review.</h3><p>Your team’s instructions and evidence are saved. This does not mark the automation tested, approve launch or verify runtime health.</p><Link href={`/clients/${accountId}?tab=delivery`}>Return to build & test →</Link></div>}
         <details className="walkthrough-reference"><summary>Accepted scope & shared setup reference</summary><p><b>Scope revision:</b> {proposal.scopeRevision} · <b>Setup revision:</b> {proposal.setup.revision}</p>{Object.entries(proposal.draft.services.email?.config||{}).map(([k,v])=><p key={k}><b>{k}:</b> {v}</p>)}{proposal.setup.answers.map((a,i)=><p key={i}>{a||'Shared setup answer not yet recorded'}</p>)}</details>
-        {run&&<details className="walkthrough-reference"><summary>Copyable build brief</summary><p>Generated from saved configuration. Instructions for a builder—not executable code.</p><Button variant="outline" onClick={()=>void copyBrief()}>Copy build brief</Button><pre>{buildEmailBrief(proposal.company,run.config)}</pre></details>}
+        {run&&<details className="walkthrough-reference"><summary>{usesCodex(run.config)?'Copyable Codex task prompt':'Copyable build brief'}</summary><p>Generated from saved configuration. Instructions for a builder—not executable code. Paste into the authorized company project; copying does not start a task.</p><Button variant="outline" onClick={()=>void copyBrief()}>{usesCodex(run.config)?'Copy Codex task prompt':'Copy build brief'}</Button><pre>{buildEmailBrief(proposal.company,run.config)}</pre></details>}
         {run&&Object.keys(run.progress).some(id=>!steps.some(s=>s.id===id))&&<details className="walkthrough-reference"><summary>Retained notes from earlier routes</summary><p>These entries are not counted toward the current route. Configuration changes require revalidation before prior work can be reused.</p>{Object.entries(run.progress).filter(([id])=>!steps.some(s=>s.id===id)).map(([id,p])=><article key={id}><h3>{id.replaceAll('-',' ')}</h3><p>{p.notes}</p><p>{p.evidence}</p>{p.blocker&&<p>{p.blocker}</p>}</article>)}</details>}
       </section>
     </div>

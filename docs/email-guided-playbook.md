@@ -1,6 +1,16 @@
 # Email assistance: guided implementation pilot
 
-Implemented September 10, 2026 (Mountain); guide ID `email-2026-09-11.1` uses the UTC date. Source/local preview only; not published by this task.
+Implemented September 10, 2026 (Mountain); current guide ID `email-2026-09-11.2` uses the UTC date. Source/local preview only; not published by this task.
+
+## Codex preference follow-up
+
+The owner selected Codex as the preferred harness. Fresh guides now default to Codex; saved alternatives remain unchanged. A harness name beginning with Codex selects project/account preflight, Gmail or conditional Outlook Email plugin checks, reusable project instructions, synthetic-first test preparation, a copyable no-send Codex task prompt, and a separately verified recurring runtime. It does not create Codex tasks, install plugins, connect accounts or enable schedules from Ops.
+
+The original `.1` instruction snapshots remain available and editable. Saving configuration upgrades to `.2`; recorded work requires explicit revalidation confirmation and notes remain. Unknown versions are still read-only. This is not a silent rewrite of existing installation instructions.
+
+Official sources checked: [plugins](https://learn.chatgpt.com/docs/plugins), [project instructions](https://learn.chatgpt.com/docs/agent-configuration/agents-md), [scheduled tasks](https://learn.chatgpt.com/docs/automations). Available tool metadata in this session confirms Gmail read/draft actions, but no real mailbox identity or operation was tested. Outlook Email availability/actions are explicitly conditional. Client/account isolation, mailbox permissions and scheduled-host availability require real verification.
+
+Validation for the follow-up: TypeScript, production build and 98 automated tests, including Codex prompt/branching and explicit older-guide upgrade behavior. No live changes or actual email/automation execution. Codex is now chosen; end-to-end recipe field validation remains outstanding.
 
 ## Employee path
 
@@ -8,7 +18,7 @@ Company → Build & test / internal Automation work → Email assistance → Sta
 
 Configuration reuses the scoped provider, mailboxes and routing/detail. Mailbox arrangement, harness/connector, delivery owner (Brendan/Emily/Derek), human reviewer and fallback need confirmation. Default authority is draft-only, even if narrow automatic replies were purchased. The server rejects automatic reply configuration unless that exact authority is in accepted scope. This pilot supports one Google or Microsoft route per scoped `email` work order, not inferred custom services or simultaneous provider installations.
 
-The six steps cover authorization, provider-specific connection, triage/draft build, send boundaries, acceptance tests, and delivery/Console handoff. Provider and mailbox arrangement change instructions; reply authority changes the review step. The harness remains a named input, not an assertion that every connector supports every action. A harness-specific installation recipe is still to be agreed with the owner and validated in that environment. This is not an automatic deployment package.
+The six steps cover authorization, provider-specific connection, triage/draft build, send boundaries, acceptance tests, and delivery/Console handoff. Provider and mailbox arrangement change instructions; reply authority changes the review step. Codex-specific instructions apply to the preferred harness; alternatives retain general guidance. The named harness is not an assertion that every connector supports every action. Real recipe validation in the selected account/runtime remains required. This is not an automatic deployment package.
 
 ## Persistence and safety
 
