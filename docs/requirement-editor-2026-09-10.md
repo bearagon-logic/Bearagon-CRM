@@ -15,3 +15,30 @@ The completion API already enforced dependencies, but the editor exposed all fie
 ## Validation
 
 TypeScript, production build and automated tests cover template parity, completion gating before fields render, missing prerequisites, progress/exception/evidence validation, conditional blocker fields, preserved rendered paragraph after errors, read-only review, and integration source contracts. No live business records were edited; browser interaction QA was not performed for this correction.
+
+## Correction — a recorded blocker survives the gate
+
+The gate above withheld every field until the operator chose **Record progress instead**, and that
+button forced `status` to `in_progress`. For a requirement that was already **Blocked** with unmet
+prerequisites this was destructive: the recorded blocker reason was shown nowhere (the checklist row
+printed `Waiting on: …` in its place, and the gate screen printed nothing), the reason field renders
+only for `blocked`, and the save payload clears `blockedReason` for any other status. Opening a
+blocked requirement, clicking the only available button and saving therefore erased the audited
+reason without ever displaying it.
+
+- The gate no longer downgrades a status that is already recorded. `editableStatus` advances only
+  `pending` to `in_progress`; `blocked`, `completed`, `skipped` and `in_progress` are preserved. The
+  button reads **Record progress instead** only when that is what it does, and **Update this
+  requirement** otherwise.
+- A blocked requirement shows its recorded reason on the gate screen, before anything is mutated.
+- `requirementRowDetail` prints the blocker alongside anything still outstanding, so the checklist
+  row no longer hides one behind the other.
+- Choosing a status that discards a recorded blocker now says so, quoting the reason, before saving.
+
+The payload rule is unchanged: a non-blocked status still clears `blockedReason`, but reaching that
+now requires an explicit status choice made against a visible warning. The labelled **Save as in
+progress** escape hatch after a failed save still clears it as before.
+
+TypeScript, the production build and all 88 tests passed (four new: status preservation, gate
+readability, the discard warning and row detail). No schema, access, approval-gate or API change; no
+live business records were edited; browser interaction QA was not performed.

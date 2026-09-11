@@ -4,6 +4,14 @@ export type Requirement = {id:string;templateKey:string;title:string;description
 export function unmetRequirements(task:Requirement,tasks:Requirement[]) {
   return (taskTemplate(task.templateKey)?.dependsOn ?? []).filter(key=>!isTerminalTaskStatus(tasks.find(t=>t.templateKey===key)?.status ?? 'pending')).map(key=>({key,title:taskTemplate(key)?.title ?? key,task:tasks.find(t=>t.templateKey===key)}));
 }
+export function editableStatus(status:string) {
+  return status==='pending'?'in_progress':status;
+}
+export function requirementRowDetail(task:Requirement,tasks:Requirement[],closed:boolean) {
+  const waiting=closed?[]:unmetRequirements(task,tasks).map(r=>r.title);
+  const parts=[waiting.length?`Waiting on: ${waiting.join(', ')}`:'',task.status==='blocked'?task.blockedReason:''].filter(Boolean);
+  return parts.join(' \u00b7 ')||task.completionNote||task.evidenceRef||task.description;
+}
 export function requirementIssue(task:Requirement,tasks:Requirement[]) {
   if(task.status==='completed') {
     const unmet=unmetRequirements(task,tasks);

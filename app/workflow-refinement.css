@@ -10,6 +10,9 @@
 .requirement-prerequisites ul { display:grid; gap:10px; list-style:none; padding:0; }
 .requirement-prerequisites button { white-space:normal; height:auto; text-align:left; padding:10px 14px; }
 .requirement-evidence { padding:14px; border-radius:10px; background:#edf5fa; }
+.requirement-recorded-blocker { padding:18px; border:1px solid #d8dee6; border-left:4px solid #64748b; border-radius:12px; background:#f5f7fa; color:#33414f; }
+.requirement-recorded-blocker h3 { margin:0 0 8px; font-size:1.125rem; }
+.requirement-recorded-blocker p { margin:0; line-height:1.5; white-space:pre-wrap; }
 @media (min-width: 761px) and (max-width: 1080px) {
   .ops-app-shell { display:grid; grid-template-columns:208px minmax(0,1fr); }
   .ops-sidebar { height:100dvh; padding-inline:12px; }
