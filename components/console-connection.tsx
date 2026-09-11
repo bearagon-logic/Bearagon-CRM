@@ -1,12 +1,30 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 type Connection = { state: string; message: string; fetchedAt?: string; clients: { id: string; name: string }[]; mappings: { accountId: string; name: string; consoleClientId: string | null }[] };
 export function ConsoleConnection({ accountId, onLinked }: { accountId?: string; onLinked?: () => void }) {
   const [data, setData] = useState<Connection | null>(null);
   const [choices, setChoices] = useState<Record<string, string>>({});
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [transferOpen,setTransferOpen] = useState(false);
+  const [source,setSource] = useState('');
+  const [target,setTarget] = useState(accountId || '');
+  const [reason,setReason] = useState('');
+  const [confirmed,setConfirmed] = useState(false);
+  const [transferError,setTransferError] = useState('');
+  const sourceMapping=data?.mappings.find(m=>m.accountId===source);
+  async function transfer() {
+    if(!sourceMapping?.consoleClientId)return;
+    setBusy(true);setTransferError('');
+    try {
+      const response=await fetch('/api/platform/connection/transfer',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({fromAccountId:source,toAccountId:target,consoleClientId:sourceMapping.consoleClientId,reason,confirmed})});
+      const result=await response.json() as {error?:string};if(!response.ok)throw new Error(result.error||'Unable to transfer.');
+      setTransferOpen(false);setMessage('Workspace transferred and verified. No automations or company history were moved.');await load();onLinked?.();
+    }catch(e){setTransferError(e instanceof Error?e.message:'Unable to transfer.');}finally{setBusy(false);}
+  }
   async function load() {
     setBusy(true);
     try {
@@ -36,6 +54,17 @@ export function ConsoleConnection({ accountId, onLinked }: { accountId?: string;
       <Link href={`/clients/${m.accountId}?tab=automations`}>{m.name}</Link>
       {m.consoleClientId ? <span>Workspace: {data.clients.find(c => c.id === m.consoleClientId)?.name || m.consoleClientId}</span> : <><select aria-label={`Console workspace for ${m.name}`} value={choices[m.accountId] || ""} onChange={e => setChoices({ ...choices, [m.accountId]: e.target.value })} disabled={busy || data.state !== "connected"}><option value="">Choose Console workspace</option>{data.clients.filter(c => !data.mappings.some(other => other.consoleClientId === c.id)).map(c => <option key={c.id} value={c.id}>{c.name} ({c.id})</option>)}</select><button type="button" disabled={busy || !choices[m.accountId]} onClick={() => link(m.accountId)}>Link workspace</button></>}
     </div>)}
+    {data?.state==='connected'&&<Button type="button" variant="outline" disabled={busy} onClick={()=>{setTransferError('');setSource('');setTarget(accountId||'');setReason('');setConfirmed(false);setTransferOpen(true);}}>Correct a workspace assignment</Button>}
     <p role="status">{message}</p>
+    <Dialog open={transferOpen} onOpenChange={open=>{if(!busy)setTransferOpen(open);}}><DialogContent><DialogHeader><DialogTitle>Transfer an unused Console connection</DialogTitle><DialogDescription>Correct a workspace linked to the wrong company. Both companies must have no automation installations. Existing notes, services and history stay with their original company. This does not deploy or run automations.</DialogDescription></DialogHeader>
+      <form onSubmit={e=>{e.preventDefault();void transfer();}} className="workspace-transfer-form">
+        <label>Currently linked company<select required value={source} disabled={busy} onChange={e=>{setSource(e.target.value);setConfirmed(false);}}><option value="">Choose current assignment</option>{data?.mappings.filter(m=>m.consoleClientId).map(m=><option key={m.accountId} value={m.accountId}>{m.name} — {data.clients.find(c=>c.id===m.consoleClientId)?.name||m.consoleClientId}</option>)}</select></label>
+        <label>Move connection to<select required value={target} disabled={busy} onChange={e=>{setTarget(e.target.value);setConfirmed(false);}}><option value="">Choose destination company</option>{data?.mappings.filter(m=>!m.consoleClientId&&m.accountId!==source).map(m=><option key={m.accountId} value={m.accountId}>{m.name}</option>)}</select></label>
+        <label>Reason<textarea required maxLength={1000} value={reason} disabled={busy} onChange={e=>setReason(e.target.value)} /></label>
+        <label className="workspace-transfer-confirm"><input type="checkbox" checked={confirmed} disabled={busy} onChange={e=>setConfirmed(e.target.checked)}/>I reviewed both companies and approve moving this Console connection.</label>
+        {transferError&&<p role="alert" className="service-error">{transferError}</p>}
+        <div className="service-actions"><Button type="button" variant="outline" disabled={busy} onClick={()=>setTransferOpen(false)}>Cancel</Button><Button type="submit" disabled={busy||!source||!target||!reason.trim()||!confirmed}>{busy?'Verifying & transferring…':'Transfer connection'}</Button></div>
+      </form>
+    </DialogContent></Dialog>
   </article>;
 }

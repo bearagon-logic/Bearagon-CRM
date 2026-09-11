@@ -55,6 +55,11 @@
 .service-scope-details { margin:16px 0; border-top:1px solid #dce6ed; border-bottom:1px solid #dce6ed; }
 .service-scope-details summary { cursor:pointer; padding:14px 0; font-weight:650; font-size:.9375rem; color:#215c84; }
 .service-panel { scroll-margin-top:24px; }
+.workspace-transfer-form { display:grid; gap:16px; }
+.workspace-transfer-form label { display:grid; gap:8px; font-size:1rem; }
+.workspace-transfer-form select,.workspace-transfer-form textarea { width:100%; border:1px solid #aac7db; border-radius:8px; padding:10px; background:white; color:#173550; }
+.workspace-transfer-form textarea { min-height:100px; }
+.workspace-transfer-form .workspace-transfer-confirm { display:flex; align-items:flex-start; gap:10px; }
 .accepted-package { border-left:4px solid var(--ember-base,#b84323); }
 .accepted-package .service-facts { grid-template-columns:repeat(2,minmax(0,1fr)); }
 .account-services > .service-panel-heading { margin-bottom:16px; }
