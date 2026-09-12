@@ -174,7 +174,7 @@
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.15) 50%, transparent 100%);
 }
 .proposal-toggles button[aria-pressed='true'] small {
-  color: #00366b;
+  color: var(--brand-neon-blue-foreground, #041527);
   font-weight: 850;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
 }

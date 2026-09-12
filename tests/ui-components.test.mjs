@@ -184,6 +184,9 @@ test("Neon blue service selection tokens provide high contrast against navy text
   const token = name => theme.match(new RegExp(`--brand-neon-blue${name}: #(\\w{6})`))[1];
   const fg = theme.match(/--brand-neon-blue-foreground: #(\w{6})/)[1];
   const fgLum = luminance(rgb(fg));
+  const tier = interaction.match(/\.proposal-toggles button\[aria-pressed='true'\] small \{\s*color: (?:var\(--brand-neon-blue-foreground, )?#(\w{6})/);
+  assert.ok(tier, 'Selected tier label has a measurable foreground');
+  const tierLum = luminance(rgb(tier[1]));
   const pill = interaction.match(/\.proposal-toggles button\[aria-pressed='true'\]>span \{\s*background: rgba\((\d+), (\d+), (\d+), ([.\d]+)\)/);
   assert.ok(pill, 'Selected status pill has a measurable background');
   const pillRgb = pill.slice(1, 4).map(v => Number(v) / 255), alpha = Number(pill[4]);
@@ -193,6 +196,7 @@ test("Neon blue service selection tokens provide high contrast against navy text
     for (let t = 0; t <= 100; t++) {
       const point = stops[i - 1].map((v, c) => v + (stops[i][c] - v) * t / 100);
       assert.ok(contrast(luminance(point), fgLum) >= 4.5, "Navy label contrast across neon blue gradient >= 4.5:1");
+      assert.ok(contrast(luminance(point), tierLum) >= 4.5, "Tier label contrast across neon blue gradient >= 4.5:1");
       const pillPoint = point.map((v, c) => v * (1 - alpha) + pillRgb[c] * alpha);
       assert.ok(contrast(luminance(pillPoint), fgLum) >= 4.5, 'Included status pill contrast across the gradient >= 4.5:1');
     }
