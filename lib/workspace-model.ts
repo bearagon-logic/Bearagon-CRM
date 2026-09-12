@@ -5,6 +5,7 @@ export type DecisionRecord = { id: string; clientId: string; clientName: string;
 export type QueueItem = { id: string; company: string; title: string; owner: string; due: string; kind: string; href: string; priority: number };
 
 export function workspaceDestination(path: string, tab = "", ongoing = false) {
+  if (!path) return "/";
   if (path.startsWith("/clients/")) return ["onboarding", "delivery"].includes(tab.toLowerCase()) ? "/onboarding" : ongoing && ["automations", "services"].includes(tab.toLowerCase()) ? "/operations" : "/companies";
   if (path === "/accounts/onboarding") return "/onboarding";
   if (path.startsWith("/automations")) return "/operations";
