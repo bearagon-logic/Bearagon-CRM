@@ -11,6 +11,7 @@ const root=fileURLToPath(new URL('..',import.meta.url));
 const vite=await createServer({appType:'custom',configFile:false,root,cacheDir:path.join(root,'.vite-test-cache','proposals'),resolve:{alias:{'@':root}},server:{middlewareMode:true,hmr:false}});
 after(()=>vite.close());
 const {newProposal,transitionProposal,proposalIssues}=await vite.ssrLoadModule('/lib/proposal-model.ts');
+const {withDefaultPrices,editScopeDraft,defaultServicePrices}=await vite.ssrLoadModule('/lib/proposal-pricing.ts');
 const {serviceCatalog,cents,scopeIssues}=await vite.ssrLoadModule('/lib/proposal-scope.ts');
 const {persistProposal,readProposal}=await vite.ssrLoadModule('/lib/server/proposal-store.ts');
 const {internalStage,internalBacklog}=await vite.ssrLoadModule('/lib/internal-operations.ts');
@@ -200,4 +201,86 @@ test('evidence editor prefills saved fields, detects real edits and renders save
   assert.match(pending,/fieldset disabled/); assert.match(pending,/Saving…/);
   const demoted=renderToStaticMarkup(React.createElement(WorkOrderEvidenceForm,{...props,order:{...draft,status:'built'}}));
   assert.match(demoted,/clears the current test reference/);
+});
+
+
+test('client price defaults include one base package and only included add-ons/custom services',()=>{
+  const s=newProposal('Pricing fixture',false), original=structuredClone(s);
+  let d=withDefaultPrices(s.draft,s);
+  assert.equal(d.monthly,'400');assert.equal(d.setup,'2000');assert.deepEqual(s,original);
+  const addons=serviceCatalog.filter(v=>v.tier==='addon');
+  d=editScopeDraft(d,'services',{...d.services,[addons[0].id]:{...d.services[addons[0].id],choice:'Include'},[addons[1].id]:{...d.services[addons[1].id],choice:'Decide later'}},s);
+  assert.equal(d.monthly,'500');assert.equal(d.setup,'2500');
+  const custom={id:'custom_pricing',included:true,name:'Custom',outcome:'Outcome',systems:'System',boundaries:'Review',acceptance:'Evidence'};
+  d=editScopeDraft(d,'customServices',[custom,{...custom,id:'custom_excluded',included:false}],s);
+  assert.equal(d.monthly,'600');assert.equal(d.setup,'3000');
+  d=editScopeDraft(d,'services',{...d.services,[addons[0].id]:{...d.services[addons[0].id],choice:'Not needed'}},s);
+  assert.equal(d.monthly,'500');assert.equal(d.setup,'2500');
+  assert.equal(d.allowance,'');assert.equal(d.overage,'');assert.equal(d.monthlyPrices,undefined);
+  const all=structuredClone(d);for(const service of serviceCatalog)all.services[service.id].choice='Include';
+  assert.deepEqual(defaultServicePrices(all),{setup:'5000',monthly:'1000'});
+});
+
+test('manual prices, including zero and explicit blank, survive selection changes and serialized reopening',()=>{
+  const s=newProposal('Pricing fixture',false);
+  let d=withDefaultPrices(s.draft,s);
+  d=editScopeDraft(d,'monthly','400',s); // Same as the suggestion still means manually chosen.
+  const addon=serviceCatalog.find(v=>v.tier==='addon');
+  const select=d=>({...d.services,[addon.id]:{...d.services[addon.id],choice:'Include'}});
+  d=editScopeDraft(d,'services',select(d),s);
+  assert.equal(d.monthly,'400');assert.equal(d.setup,'2500');
+  for(const value of ['0','','1,234.50']){
+    const manual=editScopeDraft(d,'setup',value,s);
+    const reopened=withDefaultPrices(JSON.parse(JSON.stringify(manual)),s);
+    assert.equal(reopened.setup,value);assert.equal(reopened.monthly,'400');
+  }
+});
+
+test('legacy entered prices and accepted/internal scope remain untouched',()=>{
+  const s=newProposal('Pricing fixture',false);
+  const legacy={...s.draft,monthly:'0',setup:'1,500'};
+  assert.strictEqual(withDefaultPrices(legacy,s),legacy);
+  assert.equal(withDefaultPrices({...legacy,setup:''},s).monthly,'0');
+  for(const state of [newProposal('Internal',true),accepted()]){
+    const before=structuredClone(state);
+    assert.strictEqual(withDefaultPrices(state.draft,state),state.draft);
+    assert.deepEqual(state,before);
+  }
+  const locked=accepted();assert.strictEqual(editScopeDraft(locked.draft,'monthly','1',locked),locked.draft);
+});
+
+test('itemized monthly allocations are never inferred or repriced by package defaults',()=>{
+  const s=newProposal('Pricing fixture',false);
+  const legacy={...s.draft,pricingMode:'itemized',monthlyPrices:{email:'50'}};
+  const seeded=withDefaultPrices(legacy,s);
+  assert.equal(seeded.monthly,'');assert.deepEqual(seeded.monthlyPrices,{email:'50'});
+  let d=editScopeDraft(withDefaultPrices(s.draft,s),'pricingMode','itemized',s);
+  const addon=serviceCatalog.find(v=>v.tier==='addon');
+  d=editScopeDraft(d,'services',{...d.services,[addon.id]:{...d.services[addon.id],choice:'Include'}},s);
+  d=editScopeDraft(d,'pricingMode','package',s);
+  assert.equal(d.monthly,'400');assert.equal(d.setup,'2500');
+});
+
+test('price provenance persists with scope revisions without mutating earlier snapshots',async()=>{
+  const {db,sqlite}=await database();
+  try{
+    const s=newProposal('Fixture Company',false);
+    const seeded=withDefaultPrices(s.draft,s);
+    const saved=await persistProposal(db,'account-one',s,change(s,{action:'save',draft:seeded}),actor,'save',crypto.randomUUID());
+    let reopened=await readProposal(db,'account-one');
+    assert.deepEqual(reopened.draft.defaultPricing,{setup:true,monthly:true});
+    const manual=editScopeDraft(reopened.draft,'monthly','475',reopened);
+    await persistProposal(db,'account-one',reopened,change(reopened,{action:'save',draft:manual}),actor,'save',crypto.randomUUID());
+    reopened=await readProposal(db,'account-one');
+    assert.equal(withDefaultPrices(reopened.draft,reopened).monthly,'475');
+    assert.equal(reopened.draft.defaultPricing.monthly,false);
+    assert.equal(saved.draft.monthly,'400');assert.equal(s.draft.monthly,'');
+  }finally{sqlite.close();}
+});
+
+test('scope save rejects malformed default-price provenance',()=>{
+  const s=newProposal('Pricing fixture',false);
+  for(const defaultPricing of [null,[],{monthly:'yes'},{setup:1},{unknown:true}]){
+    assert.throws(()=>change(s,{action:'save',draft:{...s.draft,defaultPricing}}),/invalid or oversized/);
+  }
 });

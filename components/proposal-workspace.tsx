@@ -1,4 +1,5 @@
 "use client";
+import { withDefaultPrices, editScopeDraft } from '@/lib/proposal-pricing';
 import { scopeStepIssues } from '@/lib/workflow-ux';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -40,7 +41,7 @@ export function ProposalWorkspace({accountId, mode, onSaved, onDirty, onBusy, on
   const dirty=scopeDirty||setupDirty||orderDirty;
   function closeEvidence(){if(!busy&&(!orderDirty||window.confirm('Discard unsaved evidence changes? Your previously saved evidence will stay unchanged.'))){setOrder(null);setError('');}}
   const accepted=!!proposal?.acceptance,locked=accepted||busy;
-  function apply(payload:Payload){setData(prev=>({...prev,...payload}));setDraft(payload.proposal.draft);setAnswers(payload.proposal.setup.answers);setConfirmed(false);onSaved?.(payload.proposal);}
+  function apply(payload:Payload){setData(prev=>({...prev,...payload}));setDraft(withDefaultPrices(payload.proposal.draft,payload.proposal));setAnswers(payload.proposal.setup.answers);setConfirmed(false);onSaved?.(payload.proposal);}
   async function load(){setBusy(true);setError('');try{const response=await fetch(`/api/clients/${accountId}/proposal`,{cache:'no-store'});const payload=await response.json() as Payload;if(!response.ok)throw new Error(payload.error);apply(payload);}catch(e){setError(e instanceof Error?e.message:'Unable to load proposal.');}finally{setBusy(false);}}
   useEffect(()=>{void load();},[accountId]);
   useEffect(()=>{if(mode==='services'&&query.get('step')==='review')setStep(3);},[query.get('step'),mode]);
@@ -58,7 +59,7 @@ export function ProposalWorkspace({accountId, mode, onSaved, onDirty, onBusy, on
     try{const response=await fetch(`/api/clients/${accountId}/proposal`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...command,expectedVersion:proposal.version})});const payload=await response.json() as Payload;if(!response.ok)throw new Error(payload.error||'Save failed.');apply(payload);setOrder(null);setNotice(command.action==='save'?'Draft saved.':command.action==='setup'?'Setup saved. Work orders reference this revision.':command.action==='approve'?'Saved revision approved for quoting. Nothing was sent.':command.action==='order'?'External evidence recorded. No automation was executed.':'Acceptance recorded. Services and delivery work are ready.');if(nextStep!==undefined){if(mode==='services'&&nextStep===4)onDelivery?.();else setStep(nextStep);}return true;}
     catch(e){setError(e instanceof Error?e.message:'Unable to save.');}finally{setBusy(false);}return false;
   }
-  function change<K extends keyof ScopeDraft>(key:K,value:ScopeDraft[K]){if(draft)setDraft({...draft,[key]:value});}
+  function change<K extends keyof ScopeDraft>(key:K,value:ScopeDraft[K]){if(draft&&proposal&&!locked)setDraft(editScopeDraft(draft,key,value,proposal));}
   function config(id:ServiceId,key:string,value:string){if(draft)change('services',{...draft.services,[id]:{...draft.services[id],config:{...draft.services[id].config,[key]:value}}});}
   const issues=draft&&proposal?proposalIssues(draft,proposal.internal):[];
   const b=draft?budget(draft):null;
@@ -218,7 +219,7 @@ export function ProposalWorkspace({accountId, mode, onSaved, onDirty, onBusy, on
     </div>
   );
 })()}
-        {step===2&&!proposal!.internal&&<section className="lane-panel proposal-card"><h2>Pricing & limits</h2><p>The monthly service fee is prepaid. Actual eligible usage above the included allowance is reconciled in arrears, within the client’s accepted additional limit.</p><fieldset disabled={locked}><div className="proposal-fields">{([['setup','One-time setup'],['monthly','Total monthly service fee'],['allowance','Included monthly usage allowance'],['overage','Maximum additional usage spend']] as const).map(([key,label])=><label key={key}>{label}<span className="proposal-money"><span aria-hidden="true">$</span><Input inputMode="decimal" aria-label={`${label} in USD`} maxLength={50} value={draft[key]} onChange={e=>change(key,e.target.value)}/></span><small>USD · commas accepted; enter 0 if none.</small></label>)}</div><label>One-time setup includes<Textarea maxLength={5000} value={draft.setupDescription||''} onChange={e=>change('setupDescription',e.target.value)}/></label>
+        {step===2&&!proposal!.internal&&<section className="lane-panel proposal-card"><h2>Pricing & limits</h2>{!accepted&&<p>Starting prices: $400/month and $2,000 setup for the base package, plus $100/month and $500 setup per selected add-on or custom service. Edit either price below to set the amount for this quote. Prices you edit stay unchanged when services change.</p>}<p>The monthly service fee is prepaid. Actual eligible usage above the included allowance is reconciled in arrears, within the client’s accepted additional limit.</p><fieldset disabled={locked}><div className="proposal-fields">{([['setup','One-time setup'],['monthly','Total monthly service fee'],['allowance','Included monthly usage allowance'],['overage','Maximum additional usage spend']] as const).map(([key,label])=><label key={key}>{label}<span className="proposal-money"><span aria-hidden="true">$</span><Input inputMode="decimal" aria-label={`${label} in USD`} maxLength={50} value={draft[key]} onChange={e=>change(key,e.target.value)}/></span><small>USD · commas accepted; enter 0 if none.</small></label>)}</div><label>One-time setup includes<Textarea maxLength={5000} value={draft.setupDescription||''} onChange={e=>change('setupDescription',e.target.value)}/></label>
           <label>Monthly pricing presentation<select value={draft.pricingMode||'package'} onChange={e=>change('pricingMode',e.target.value as 'package'|'itemized')}><option value="package">One monthly package total</option><option value="itemized">Allocate monthly total across services</option></select></label>
           {draft.pricingMode==='itemized'&&<div className="proposal-fields">{scopedServiceNames(draft).map(s=><label key={s.id}>{s.name}<span className="proposal-money"><span aria-hidden="true">$</span><Input aria-label={`${s.name} monthly USD`} inputMode="decimal" value={draft.monthlyPrices?.[s.id]||''} onChange={e=>change('monthlyPrices',{...draft.monthlyPrices,[s.id]:e.target.value})}/></span></label>)}</div>}
           <p className="proposal-notice">Total usage budget: {usd(b!.total)} = allowance + maximum additional spend. The service fee is separate. This is not proof that a provider hard stop exists.</p>

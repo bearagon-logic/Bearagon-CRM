@@ -54,6 +54,8 @@ export type ScopeDraft = {
   setupDescription?: string;
   pricingMode?: 'package' | 'itemized';
   monthlyPrices?: Partial<Record<ScopedServiceId, string>>;
+  // Editor provenance only; absent on older quotes. False preserves explicit overrides.
+  defaultPricing?: Partial<Record<'setup' | 'monthly', boolean>>;
   ecosystem: string;
   systems: SystemEntry[];
   services: Record<
@@ -278,6 +280,7 @@ export function scopeIssues(d: ScopeDraft): string[] {
 export function validScopeDraft(value: unknown): value is ScopeDraft {
   if (!value || typeof value !== 'object') return false;
   const d = value as ScopeDraft;
+  if (d.defaultPricing !== undefined && (!d.defaultPricing || typeof d.defaultPricing !== 'object' || Array.isArray(d.defaultPricing) || !Object.entries(d.defaultPricing).every(([key, automatic]) => ['setup', 'monthly'].includes(key) && typeof automatic === 'boolean'))) return false;
   if (
     d.setupDescription !== undefined &&
     (typeof d.setupDescription !== 'string' || d.setupDescription.length > 5000)
