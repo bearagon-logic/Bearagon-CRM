@@ -152,3 +152,48 @@ test("renders sidebar skeletons deterministically", async () => {
   assert.equal(first, second);
   assert.match(first, /--skeleton-width:70%/);
 });
+
+test("proposal service toggles scale compactly on desktop full screen with 5-column grid and 2-column workspace", async () => {
+  const interaction = await readFile(path.join(root, "app/interaction-theme.css"), "utf8");
+  const proposalCss = await readFile(path.join(root, "app/proposal.css"), "utf8");
+  const companyExp = await readFile(path.join(root, "app/company-experience.css"), "utf8");
+
+  // Wide-screen 5-column layout for 10 catalog services (5 base, 5 add-on)
+  assert.match(interaction, /@media \(min-width: 1100px\) \{\s*\.proposal-toggles \{\s*grid-template-columns: repeat\(5, minmax\(0, 1fr\)\);/);
+
+  // Compact card height
+  assert.match(interaction, /\.proposal-toggles button \{\s*display: grid;\s*grid-template-rows: auto 1fr auto;\s*min-height: 84px;/);
+  assert.match(proposalCss, /\.proposal-toggles button \{[^}]+min-height:84px/);
+
+  // 1440px max-width workspace layout utilizing full desktop width
+  assert.match(companyExp, /\.company-experience \.proposal-page>\.lane-body\{padding:0;max-width:1440px\}/);
+  assert.match(proposalCss, /\.proposal-page \.lane-body \{ max-width: 1440px; \}/);
+
+  // 2-column split workspace with companion summary sidebar
+  assert.match(proposalCss, /@media \(min-width: 1100px\) \{\s*\.proposal-workspace-grid \{\s*grid-template-columns: minmax\(0, 1fr\) 320px;/);
+  assert.match(proposalCss, /\.proposal-summary-sidebar \{\s*position: sticky;\s*top: 20px;/);
+});
+
+test("Chartreuse service selection tokens provide high contrast against navy text", async () => {
+  const theme = await readFile(path.join(root, "app/semantic-theme.css"), "utf8");
+  const interaction = await readFile(path.join(root, "app/interaction-theme.css"), "utf8");
+  const rgb = hex => hex.match(/\w\w/g).map(part => parseInt(part, 16) / 255);
+  const luminance = values => values.map(v => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4).reduce((sum, v, i) => sum + v * [.2126, .7152, .0722][i], 0);
+  const contrast = (l1, l2) => (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+
+  const token = name => theme.match(new RegExp(`--brand-chartreuse${name}: #(\\w{6})`))[1];
+  const fg = theme.match(/--brand-chartreuse-foreground: #(\w{6})/)[1];
+  const fgLum = luminance(rgb(fg));
+
+  const stops = ["-highlight", "", "-deep", "-end"].map(name => rgb(token(name)));
+  for (let i = 1; i < stops.length; i++) {
+    for (let t = 0; t <= 100; t++) {
+      const point = stops[i - 1].map((v, c) => v + (stops[i][c] - v) * t / 100);
+      assert.ok(contrast(luminance(point), fgLum) >= 4.5, "Navy label contrast across chartreuse gradient >= 4.5:1");
+    }
+  }
+
+  assert.match(interaction, /var\(--brand-chartreuse-highlight/);
+  assert.match(interaction, /var\(--brand-chartreuse-foreground/);
+});
+

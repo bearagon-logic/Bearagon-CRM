@@ -74,11 +74,149 @@ export function ProposalWorkspace({accountId, mode, onSaved, onDirty, onBusy, on
         {notice&&<p role="status" className="proposal-notice">{notice}</p>}
         {step===0&&<section className="lane-panel proposal-card"><h2>Start with their ecosystem</h2><p>A Google or Microsoft selection is enough for initial scope. Detail actual mailboxes, access and handoffs during setup. Mixed or new systems need an inventory here.</p><fieldset disabled={locked}><label>Existing ecosystem<select value={draft.ecosystem} onChange={e=>change('ecosystem',e.target.value)}><option value="">Choose ecosystem</option>{ecosystems.map(e=><option key={e}>{e}</option>)}</select></label>
           {draft.systems.map((system,i)=><div className="proposal-system" key={i}>{(['purpose','provider','status','owner','notes'] as const).map(key=><label key={key}>{key==='owner'?'Responsible person':key[0].toUpperCase()+key.slice(1)}{key==='status'?<select value={system.status} onChange={e=>change('systems',draft.systems.map((s,j)=>j===i?{...s,status:e.target.value}:s))}>{['Existing','To be created'].map(s=><option key={s}>{s}</option>)}</select>:<Input maxLength={5000} value={system[key]} onChange={e=>change('systems',draft.systems.map((s,j)=>j===i?{...s,[key]:e.target.value}:s))}/>}</label>)}<Button type="button" variant="outline" onClick={()=>change('systems',draft.systems.filter((_,j)=>j!==i))}>Remove system</Button></div>)}<Button variant="outline" disabled={draft.systems.length>=30} onClick={()=>change('systems',[...draft.systems,{purpose:'',provider:'',owner:'',notes:'',status:'Existing'}])}>Add system details</Button></fieldset></section>}
-{step===1&&<section className="lane-panel proposal-card"><h2>Establish the service package</h2><p>Highlighted services enter the quote. Off means excluded—not TBD. Prices are established in the next step.</p><fieldset disabled={locked}><div className="proposal-toggles">{serviceCatalog.map(s=><button type="button" key={s.id} aria-pressed={draft.services[s.id].choice==='Include'} onClick={()=>change('services',{...draft.services,[s.id]:{...draft.services[s.id],choice:draft.services[s.id].choice==='Include'?'Not needed':'Include'}})}><small>{s.tier==='base'?'BASE':'ADD-ON'}</small><strong>{s.name}</strong><span>{draft.services[s.id].choice==='Include'?'Included ✓':'Not included +'}</span></button>)}</div>
-          {serviceCatalog.filter(s=>draft.services[s.id].choice==='Include').map(s=><article className="proposal-service" key={s.id}><h3>{s.name}</h3><p>{s.summary}</p><details><summary>Cipher’s field guide</summary><p>{s.guidance}</p></details><div className="proposal-fields">{s.fields.map(f=><label key={f.key}>{f.label}{f.options?<select value={draft.services[s.id].config[f.key]||''} onChange={e=>config(s.id,f.key,e.target.value)}><option value="">Choose</option>{f.options.map(o=><option key={o}>{o}</option>)}</select>:<Textarea maxLength={5000} value={draft.services[s.id].config[f.key]||''} onChange={e=>config(s.id,f.key,e.target.value)}/>}<small>{f.hint}</small></label>)}</div></article>)}
-          {(draft.customServices||[]).map((s,i)=><article className="proposal-service" key={s.id}><Button className="service-inclusion-toggle" aria-pressed={s.included} variant={s.included?'default':'outline'} onClick={()=>change('customServices',draft.customServices!.map((v,j)=>j===i?{...v,included:!v.included}:v))}>{s.included?'Included ✓':'Not included +'} · {s.name||'Custom service'}</Button>{s.included&&<div className="proposal-fields">{customFields.map(f=><label key={f.key}>{f.label}<Textarea maxLength={5000} value={s[f.key]} onChange={e=>change('customServices',draft.customServices!.map((v,j)=>j===i?{...v,[f.key]:e.target.value}:v))}/><small>{f.hint}</small></label>)}</div>}</article>)}
-          <Button variant="outline" disabled={(draft.customServices?.length||0)>=30} onClick={()=>change('customServices',[...(draft.customServices||[]),{id:`custom_${crypto.randomUUID()}`,included:true,name:'',outcome:'',systems:'',boundaries:'',acceptance:''}])}>Add a custom service</Button>
-          <label>Quote comments & future opportunities<Textarea maxLength={5000} value={draft.quoteComments||''} onChange={e=>change('quoteComments',e.target.value)}/><small>For example: “Revisit social marketing in one month.” Comments do not order services or schedule reminders.</small></label></fieldset></section>}
+{step===1&&(() => {
+  const includedCatalog = serviceCatalog.filter(s => draft.services[s.id]?.choice === 'Include');
+  const baseIncludedCount = includedCatalog.filter(s => s.tier === 'base').length;
+  const addonIncludedCount = includedCatalog.filter(s => s.tier === 'addon').length;
+  const customIncludedCount = (draft.customServices || []).filter(s => s.included).length;
+  const totalIncluded = includedCatalog.length + customIncludedCount;
+  return (
+    <div className="proposal-workspace-grid">
+      <div className="proposal-main-column">
+        <section className="lane-panel proposal-card">
+          <h2>Establish the service package</h2>
+          <p>Highlighted services enter the quote. Off means excluded—not TBD. Prices are established in the next step.</p>
+          <fieldset disabled={locked}>
+            <div className="proposal-toggles">
+              {serviceCatalog.map(s => (
+                <button
+                  type="button"
+                  key={s.id}
+                  aria-pressed={draft.services[s.id].choice === 'Include'}
+                  onClick={() => change('services', {
+                    ...draft.services,
+                    [s.id]: {
+                      ...draft.services[s.id],
+                      choice: draft.services[s.id].choice === 'Include' ? 'Not needed' : 'Include'
+                    }
+                  })}
+                >
+                  <small>{s.tier === 'base' ? 'BASE' : 'ADD-ON'}</small>
+                  <strong>{s.name}</strong>
+                  <span>{draft.services[s.id].choice === 'Include' ? 'Included ✓' : 'Not included +'}</span>
+                </button>
+              ))}
+            </div>
+            {includedCatalog.map(s => (
+              <article className="proposal-service" key={s.id} id={`service-${s.id}`}>
+                <h3>{s.name}</h3>
+                <p>{s.summary}</p>
+                <details>
+                  <summary>Cipher’s field guide</summary>
+                  <p>{s.guidance}</p>
+                </details>
+                <div className="proposal-fields">
+                  {s.fields.map(f => (
+                    <label key={f.key}>
+                      {f.label}
+                      {f.options ? (
+                        <select value={draft.services[s.id].config[f.key] || ''} onChange={e => config(s.id, f.key, e.target.value)}>
+                          <option value="">Choose</option>
+                          {f.options.map(o => <option key={o}>{o}</option>)}
+                        </select>
+                      ) : (
+                        <Textarea maxLength={5000} value={draft.services[s.id].config[f.key] || ''} onChange={e => config(s.id, f.key, e.target.value)} />
+                      )}
+                      <small>{f.hint}</small>
+                    </label>
+                  ))}
+                </div>
+              </article>
+            ))}
+            {(draft.customServices || []).map((s, i) => (
+              <article className="proposal-service" key={s.id} id={`service-${s.id}`}>
+                <Button className="service-inclusion-toggle" aria-pressed={s.included} variant={s.included ? 'default' : 'outline'} onClick={() => change('customServices', draft.customServices!.map((v, j) => j === i ? { ...v, included: !v.included } : v))}>
+                  {s.included ? 'Included ✓' : 'Not included +'} · {s.name || 'Custom service'}
+                </Button>
+                {s.included && (
+                  <div className="proposal-fields">
+                    {customFields.map(f => (
+                      <label key={f.key}>
+                        {f.label}
+                        <Textarea maxLength={5000} value={s[f.key]} onChange={e => change('customServices', draft.customServices!.map((v, j) => j === i ? { ...v, [f.key]: e.target.value } : v))} />
+                        <small>{f.hint}</small>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </article>
+            ))}
+            <Button variant="outline" disabled={(draft.customServices?.length || 0) >= 30} onClick={() => change('customServices', [...(draft.customServices || []), { id: `custom_${crypto.randomUUID()}`, included: true, name: '', outcome: '', systems: '', boundaries: '', acceptance: '' }])}>
+              Add a custom service
+            </Button>
+            <label>
+              Quote comments & future opportunities
+              <Textarea maxLength={5000} value={draft.quoteComments || ''} onChange={e => change('quoteComments', e.target.value)} />
+              <small>For example: “Revisit social marketing in one month.” Comments do not order services or schedule reminders.</small>
+            </label>
+          </fieldset>
+        </section>
+      </div>
+      <aside className="company-panel proposal-summary-sidebar">
+        <div className="panel-heading">
+          <div>
+            <small className="eyebrow">PACKAGE SUMMARY</small>
+            <h2>Scope & services</h2>
+          </div>
+          <span className="company-status">{totalIncluded} of {serviceCatalog.length} included</span>
+        </div>
+        <div className="proposal-summary-stats">
+          <div className="proposal-stat-row">
+            <span>Base services</span>
+            <strong>{baseIncludedCount} of 5</strong>
+          </div>
+          <div className="proposal-stat-row">
+            <span>Optional add-ons</span>
+            <strong>{addonIncludedCount} of 5</strong>
+          </div>
+          {customIncludedCount > 0 && (
+            <div className="proposal-stat-row">
+              <span>Custom services</span>
+              <strong>{customIncludedCount}</strong>
+            </div>
+          )}
+        </div>
+        {includedCatalog.length > 0 && (
+          <div className="proposal-jump-list">
+            <small className="eyebrow">CONFIGURED SERVICES</small>
+            <nav aria-label="Configured services quick jump">
+              {includedCatalog.map(s => (
+                <a key={s.id} href={`#service-${s.id}`} className="proposal-jump-item">
+                  <span className="proposal-jump-bullet">✓</span>
+                  <span>{s.name}</span>
+                </a>
+              ))}
+            </nav>
+          </div>
+        )}
+        <div className="proposal-sidebar-guidance">
+          <small className="eyebrow">CIPHER’S FIELD GUIDE</small>
+          <p>Highlighted services enter the quote scope. Off means excluded. Prices and allowance are established in step 3.</p>
+        </div>
+        <div className="proposal-sidebar-actions">
+          {!accepted && (
+            <Button variant="outline" disabled={busy || setupDirty} onClick={() => void act({ action: 'save', draft })}>
+              {busy ? 'Saving…' : 'Save draft'}
+            </Button>
+          )}
+          <Button disabled={busy} onClick={continueScope}>
+            {accepted ? 'Continue →' : 'Save & continue →'}
+          </Button>
+        </div>
+      </aside>
+    </div>
+  );
+})()}
         {step===2&&!proposal!.internal&&<section className="lane-panel proposal-card"><h2>Pricing & limits</h2><p>The monthly service fee is prepaid. Actual eligible usage above the included allowance is reconciled in arrears, within the client’s accepted additional limit.</p><fieldset disabled={locked}><div className="proposal-fields">{([['setup','One-time setup'],['monthly','Total monthly service fee'],['allowance','Included monthly usage allowance'],['overage','Maximum additional usage spend']] as const).map(([key,label])=><label key={key}>{label}<span className="proposal-money"><span aria-hidden="true">$</span><Input inputMode="decimal" aria-label={`${label} in USD`} maxLength={50} value={draft[key]} onChange={e=>change(key,e.target.value)}/></span><small>USD · commas accepted; enter 0 if none.</small></label>)}</div><label>One-time setup includes<Textarea maxLength={5000} value={draft.setupDescription||''} onChange={e=>change('setupDescription',e.target.value)}/></label>
           <label>Monthly pricing presentation<select value={draft.pricingMode||'package'} onChange={e=>change('pricingMode',e.target.value as 'package'|'itemized')}><option value="package">One monthly package total</option><option value="itemized">Allocate monthly total across services</option></select></label>
           {draft.pricingMode==='itemized'&&<div className="proposal-fields">{scopedServiceNames(draft).map(s=><label key={s.id}>{s.name}<span className="proposal-money"><span aria-hidden="true">$</span><Input aria-label={`${s.name} monthly USD`} inputMode="decimal" value={draft.monthlyPrices?.[s.id]||''} onChange={e=>change('monthlyPrices',{...draft.monthlyPrices,[s.id]:e.target.value})}/></span></label>)}</div>}

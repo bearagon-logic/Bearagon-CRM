@@ -1,6 +1,13 @@
 /* Loaded in the same Tailwind compilation unit as the utility classes. */
 /* Brand emphasis, not a warning/error or runtime-health status. */
 :root {
+  --brand-chartreuse: #78be1a;
+  --brand-chartreuse-highlight: #93d924;
+  --brand-chartreuse-deep: #5e9910;
+  --brand-chartreuse-end: #6aa614;
+  --brand-chartreuse-edge: #3e6308;
+  --brand-chartreuse-soft: #f2f9e4;
+  --brand-chartreuse-foreground: #082136;
   --brand-ember: #b84323;
   --brand-ember-highlight: #c44e27;
   --brand-ember-deep: #a9381b;
