@@ -1,6 +1,13 @@
 /* Loaded in the same Tailwind compilation unit as the utility classes. */
 /* Brand emphasis, not a warning/error or runtime-health status. */
 :root {
+  --brand-neon-blue: #00b4ff;
+  --brand-neon-blue-highlight: #00e5ff;
+  --brand-neon-blue-deep: #0098ff;
+  --brand-neon-blue-end: #0088ff;
+  --brand-neon-blue-edge: #005bb5;
+  --brand-neon-blue-soft: #e0f4ff;
+  --brand-neon-blue-foreground: #041527;
   --brand-chartreuse: #78be1a;
   --brand-chartreuse-highlight: #93d924;
   --brand-chartreuse-deep: #5e9910;

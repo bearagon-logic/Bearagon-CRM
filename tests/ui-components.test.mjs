@@ -174,15 +174,15 @@ test("proposal service toggles scale compactly on desktop full screen with 5-col
   assert.match(proposalCss, /\.proposal-workspace-grid > \.proposal-summary-sidebar \{\s*position: sticky;\s*top: 20px;/);
 });
 
-test("Chartreuse service selection tokens provide high contrast against navy text", async () => {
+test("Neon blue service selection tokens provide high contrast against navy text", async () => {
   const theme = await readFile(path.join(root, "app/semantic-theme.css"), "utf8");
   const interaction = await readFile(path.join(root, "app/interaction-theme.css"), "utf8");
   const rgb = hex => hex.match(/\w\w/g).map(part => parseInt(part, 16) / 255);
   const luminance = values => values.map(v => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4).reduce((sum, v, i) => sum + v * [.2126, .7152, .0722][i], 0);
   const contrast = (l1, l2) => (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
 
-  const token = name => theme.match(new RegExp(`--brand-chartreuse${name}: #(\\w{6})`))[1];
-  const fg = theme.match(/--brand-chartreuse-foreground: #(\w{6})/)[1];
+  const token = name => theme.match(new RegExp(`--brand-neon-blue${name}: #(\\w{6})`))[1];
+  const fg = theme.match(/--brand-neon-blue-foreground: #(\w{6})/)[1];
   const fgLum = luminance(rgb(fg));
   const pill = interaction.match(/\.proposal-toggles button\[aria-pressed='true'\]>span \{\s*background: rgba\((\d+), (\d+), (\d+), ([.\d]+)\)/);
   assert.ok(pill, 'Selected status pill has a measurable background');
@@ -192,12 +192,12 @@ test("Chartreuse service selection tokens provide high contrast against navy tex
   for (let i = 1; i < stops.length; i++) {
     for (let t = 0; t <= 100; t++) {
       const point = stops[i - 1].map((v, c) => v + (stops[i][c] - v) * t / 100);
-      assert.ok(contrast(luminance(point), fgLum) >= 4.5, "Navy label contrast across chartreuse gradient >= 4.5:1");
+      assert.ok(contrast(luminance(point), fgLum) >= 4.5, "Navy label contrast across neon blue gradient >= 4.5:1");
       const pillPoint = point.map((v, c) => v * (1 - alpha) + pillRgb[c] * alpha);
       assert.ok(contrast(luminance(pillPoint), fgLum) >= 4.5, 'Included status pill contrast across the gradient >= 4.5:1');
     }
   }
 
-  assert.match(interaction, /var\(--brand-chartreuse-highlight/);
-  assert.match(interaction, /var\(--brand-chartreuse-foreground/);
+  assert.match(interaction, /var\(--brand-neon-blue-highlight/);
+  assert.match(interaction, /var\(--brand-neon-blue-foreground/);
 });

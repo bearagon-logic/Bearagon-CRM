@@ -157,16 +157,16 @@
 }
 .proposal-toggles button[aria-pressed='true'],
 .proposal-service .service-inclusion-toggle[aria-pressed='true'] {
-  color: var(--brand-chartreuse-foreground, #082136);
-  border-color: var(--brand-chartreuse-edge, #3e6308);
-  background: radial-gradient(ellipse at 50% 25%, var(--brand-chartreuse-highlight, #93d924) 0%, var(--brand-chartreuse, #78be1a) 35%, var(--brand-chartreuse-deep, #5e9910) 75%, var(--brand-chartreuse-end, #6aa614) 100%);
+  color: var(--brand-neon-blue-foreground, #041527);
+  border-color: var(--brand-neon-blue-edge, #005bb5);
+  background: radial-gradient(ellipse at 50% 25%, var(--brand-neon-blue-highlight, #00e5ff) 0%, var(--brand-neon-blue, #00b4ff) 35%, var(--brand-neon-blue-deep, #0098ff) 75%, var(--brand-neon-blue-end, #0088ff) 100%);
   box-shadow:
     inset 0 2px 1px rgba(255, 255, 255, 0.95),
-    inset 0 0 14px rgba(210, 255, 120, 0.7),
-    inset 0 -2.5px 4px rgba(35, 60, 5, 0.45),
-    0 4px 0 var(--brand-chartreuse-edge, #3e6308),
-    0 0 20px rgba(130, 214, 22, 0.55),
-    0 0 38px rgba(147, 217, 36, 0.28),
+    inset 0 0 14px rgba(160, 240, 255, 0.7),
+    inset 0 -2.5px 4px rgba(0, 50, 120, 0.45),
+    0 4px 0 var(--brand-neon-blue-edge, #005bb5),
+    0 0 22px rgba(0, 180, 255, 0.65),
+    0 0 40px rgba(0, 140, 255, 0.35),
     0 6px 14px rgba(0, 0, 0, 0.45);
 }
 .proposal-toggles button[aria-pressed='true']::before,
@@ -174,20 +174,20 @@
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.15) 50%, transparent 100%);
 }
 .proposal-toggles button[aria-pressed='true'] small {
-  color: #173d05;
+  color: #00366b;
   font-weight: 850;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 .proposal-toggles button[aria-pressed='true'] strong {
-  color: var(--brand-chartreuse-foreground, #082136);
+  color: var(--brand-neon-blue-foreground, #041527);
   font-weight: 750;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 .proposal-toggles button[aria-pressed='true']>span {
-  background: rgba(255, 255, 255, 0.3);
-  color: var(--brand-chartreuse-foreground, #082136);
-  border: 1px solid rgba(46, 77, 5, 0.4);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2), 0 1px 0 rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.45);
+  color: var(--brand-neon-blue-foreground, #041527);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.7), 0 1px 2px rgba(0, 0, 0, 0.15);
   text-shadow: none;
 }
 .proposal-service .service-inclusion-toggle {
@@ -254,11 +254,11 @@
   transform: translateY(-1.5px);
   box-shadow:
     inset 0 2px 1px rgba(255, 255, 255, 1),
-    inset 0 0 18px rgba(225, 255, 140, 0.85),
-    inset 0 -2.5px 4px rgba(35, 60, 5, 0.4),
-    0 5.5px 0 var(--brand-chartreuse-edge, #3e6308),
-    0 0 28px rgba(147, 217, 36, 0.75),
-    0 0 50px rgba(147, 217, 36, 0.35),
+    inset 0 0 18px rgba(180, 245, 255, 0.85),
+    inset 0 -2.5px 4px rgba(0, 45, 110, 0.4),
+    0 5.5px 0 var(--brand-neon-blue-edge, #005bb5),
+    0 0 28px rgba(0, 195, 255, 0.75),
+    0 0 50px rgba(0, 150, 255, 0.4),
     0 8px 18px rgba(0, 0, 0, 0.5);
 }
 .proposal-toggles button[aria-pressed='true']:not(:disabled):active,
@@ -266,9 +266,9 @@
   transform: translateY(3.5px);
   box-shadow:
     inset 0 2px 4px rgba(0, 0, 0, 0.35),
-    inset 0 0 12px rgba(180, 240, 70, 0.8),
-    0 0.5px 0 var(--brand-chartreuse-edge, #3e6308),
-    0 0 14px rgba(130, 214, 22, 0.55);
+    inset 0 0 12px rgba(0, 180, 255, 0.8),
+    0 0.5px 0 var(--brand-neon-blue-edge, #005bb5),
+    0 0 16px rgba(0, 180, 255, 0.6);
 }
 .proposal-toggles button:disabled { opacity: .65; cursor: not-allowed; }
 .proposal-actions {
