@@ -110,14 +110,15 @@ export function EmailWalkthrough({accountId,initialData,initialStep}:{accountId:
         <Button
           variant={active==='configuration'?'default':'outline'}
           className={`walkthrough-rail-btn ${active==='configuration'?'is-active':''} ${unsaved.has('configuration')?'has-draft is-dirty':''}`}
+          aria-current={active==='configuration'?'step':undefined}
           disabled={busy}
           onClick={()=>go('configuration')}
         >
-          <div className="rail-btn-icon">{run ? '✓' : '⚙'}</div>
-          <div className="rail-btn-content">
+          <span className="rail-btn-icon" aria-hidden="true">{run ? '✓' : '⚙'}</span>
+          <span className="rail-btn-content">
             <span className="rail-btn-title">Configuration</span>
             <small className="rail-btn-sub">{unsaved.has('configuration')?'Unsaved draft':run?'Saved':'Start here'}</small>
-          </div>
+          </span>
         </Button>
 
         {steps.map((s,i)=>(
@@ -129,11 +130,11 @@ export function EmailWalkthrough({accountId,initialData,initialStep}:{accountId:
             disabled={busy}
             onClick={()=>go(s.id)}
           >
-            <div className="rail-btn-icon">{run?.progress[s.id]?.status==='completed' ? '✓' : run?.progress[s.id]?.status==='blocked' ? '!' : (i+1)}</div>
-            <div className="rail-btn-content">
+            <span className="rail-btn-icon" aria-hidden="true">{run?.progress[s.id]?.status==='completed' ? '✓' : run?.progress[s.id]?.status==='blocked' ? '!' : (i+1)}</span>
+            <span className="rail-btn-content">
               <span className="rail-btn-title">{i+1}. {s.title}</span>
               <small className="rail-btn-sub">{unsaved.has(s.id)?'Unsaved draft':statusLabel(run?.progress[s.id]?.status)}</small>
-            </div>
+            </span>
           </Button>
         ))}
 
@@ -144,11 +145,11 @@ export function EmailWalkthrough({accountId,initialData,initialStep}:{accountId:
           disabled={busy}
           onClick={()=>go('summary')}
         >
-          <div className="rail-btn-icon">📋</div>
-          <div className="rail-btn-content">
+          <span className="rail-btn-icon" aria-hidden="true">📋</span>
+          <span className="rail-btn-content">
             <span className="rail-btn-title">Walkthrough review</span>
             <small className="rail-btn-sub">{completed} / {steps.length} recorded</small>
-          </div>
+          </span>
         </Button>}
 
         <div className="walkthrough-rail-meta">
@@ -160,7 +161,7 @@ export function EmailWalkthrough({accountId,initialData,initialStep}:{accountId:
       <section className="walkthrough-main">
         <div className="walkthrough-section-title">
           <h2 ref={heading} tabIndex={-1}>{active==='configuration'?'Confirm the implementation route':active==='summary'?'Review recorded walkthrough':current?.title}</h2>
-          <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
+          <div className="walkthrough-record-status">
             <span>{currentDirty?'Unsaved edits':`Saved record v${proposal.version}`}</span>
             {currentDirty&&<Button variant="outline" size="sm" disabled={busy} onClick={discardCurrent}>Discard this draft</Button>}
           </div>
@@ -352,4 +353,3 @@ export function EmailWalkthrough({accountId,initialData,initialStep}:{accountId:
     </div>
   </main>;
 }
-

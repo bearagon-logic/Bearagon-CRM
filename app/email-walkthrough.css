@@ -11,6 +11,41 @@
   font-family: 'Segoe UI', Arial, sans-serif;
 }
 
+.email-walkthrough p,
+.email-walkthrough a {
+  overflow-wrap: anywhere;
+}
+.email-walkthrough a {
+  color: #145d86;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Entry actions also appear in the company workspace, outside this page. */
+.walkthrough-entry {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 18px 0;
+}
+.walkthrough-entry > a,
+.walkthrough-back {
+  display: inline-block;
+  border: 1px solid #104766;
+  border-radius: 9px;
+  padding: 11px 17px;
+  background: linear-gradient(#227daa, #155477);
+  box-shadow: inset 0 1px 0 #ffffff40, 0 3px 0 #103d59;
+  color: white !important;
+  text-decoration: none;
+  font-size: .95rem;
+  font-weight: 700;
+}
+.walkthrough-entry > span { font-size: .875rem; color: #526b80; }
+.walkthrough-entry > a:focus-visible,
+.walkthrough-back:focus-visible { outline: 3px solid #1887c5; outline-offset: 3px; }
+
 /* Header & Progress */
 .walkthrough-heading {
   margin-bottom: 24px;
@@ -177,8 +212,7 @@
   font-weight: 650;
   color: #16354f;
   line-height: 1.35;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 .walkthrough-rail small,
 .rail-btn-sub {
@@ -211,7 +245,7 @@
 }
 .walkthrough-rail-meta small {
   line-height: 1.4;
-  color: #6a8296;
+  color: #526b80;
 }
 
 /* Main Workspace Card */
@@ -240,7 +274,14 @@
   color: #102e4b;
   margin: 0;
 }
-.walkthrough-section-title > span {
+.walkthrough-record-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.walkthrough-record-status > span {
   font-size: 0.85rem;
   font-weight: 600;
   color: #526b80;
@@ -385,7 +426,7 @@
   font-weight: 700 !important;
 }
 .walkthrough-btn-primary:hover:not(:disabled) {
-  background: linear-gradient(#278bbd, #185f86) !important;
+  background: linear-gradient(#1f729c, #185f86) !important;
 }
 .walkthrough-btn-secondary {
   border: 1px solid #b8cede !important;
@@ -428,6 +469,7 @@
 }
 
 .walkthrough-instructions {
+  list-style: decimal;
   padding-left: 24px;
   margin: 12px 0;
 }
@@ -592,7 +634,7 @@
 }
 .playbooks-hero-disclaimer {
   font-size: 0.875rem !important;
-  color: #647d92 !important;
+  color: #526b80 !important;
 }
 .playbooks-hero-cta {
   margin-top: 18px;
@@ -711,6 +753,7 @@
   margin: 2px 0 0;
 }
 .guide-steps {
+  list-style: decimal;
   padding-left: 20px;
   margin: 8px 0;
 }
@@ -782,4 +825,3 @@
     transition: none !important;
   }
 }
-
