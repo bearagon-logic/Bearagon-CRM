@@ -49,7 +49,7 @@ export function ProposalWorkspace({accountId, mode, onSaved, onDirty, onBusy, on
   useEffect(()=>{setNotice('');setStepErrors([]);heading.current?.focus();window.scrollTo({top:0,behavior:'instant'});},[step]);
   useEffect(()=>{
     const unload=(event:BeforeUnloadEvent)=>{if(dirty){event.preventDefault();event.returnValue='';}};
-    const leave=(event:MouseEvent)=>{const anchor=(event.target as Element)?.closest('a[href]');if(dirty&&anchor&&!window.confirm('Leave this page and discard unsaved changes?')){event.preventDefault();event.stopPropagation();}};
+    const leave=(event:MouseEvent)=>{const anchor=(event.target as Element)?.closest('a[href]');if(dirty&&anchor&&!anchor.getAttribute('href')?.startsWith('#')&&!window.confirm('Leave this page and discard unsaved changes?')){event.preventDefault();event.stopPropagation();}};
     window.addEventListener('beforeunload',unload);document.addEventListener('click',leave,true);
     return()=>{window.removeEventListener('beforeunload',unload);document.removeEventListener('click',leave,true);};
   },[dirty]);
@@ -78,14 +78,15 @@ export function ProposalWorkspace({accountId, mode, onSaved, onDirty, onBusy, on
   const includedCatalog = serviceCatalog.filter(s => draft.services[s.id]?.choice === 'Include');
   const baseIncludedCount = includedCatalog.filter(s => s.tier === 'base').length;
   const addonIncludedCount = includedCatalog.filter(s => s.tier === 'addon').length;
-  const customIncludedCount = (draft.customServices || []).filter(s => s.included).length;
+  const includedCustom = (draft.customServices || []).filter(s => s.included);
+  const customIncludedCount = includedCustom.length;
   const totalIncluded = includedCatalog.length + customIncludedCount;
   return (
     <div className="proposal-workspace-grid">
       <div className="proposal-main-column">
         <section className="lane-panel proposal-card">
           <h2>Establish the service package</h2>
-          <p>Highlighted services enter the quote. Off means excluded—not TBD. Prices are established in the next step.</p>
+          <p>{proposal!.internal ? 'Highlighted services enter the internal plan. Off means excluded. Review the scope in the next step.' : 'Highlighted services enter the quote. Off means excluded—not TBD. Prices are established in the next step.'}</p>
           <fieldset disabled={locked}>
             <div className="proposal-toggles">
               {serviceCatalog.map(s => (
@@ -136,7 +137,7 @@ export function ProposalWorkspace({accountId, mode, onSaved, onDirty, onBusy, on
             {(draft.customServices || []).map((s, i) => (
               <article className="proposal-service" key={s.id} id={`service-${s.id}`}>
                 <Button className="service-inclusion-toggle" aria-pressed={s.included} variant={s.included ? 'default' : 'outline'} onClick={() => change('customServices', draft.customServices!.map((v, j) => j === i ? { ...v, included: !v.included } : v))}>
-                  {s.included ? 'Included ✓' : 'Not included +'} · {s.name || 'Custom service'}
+                  <span>{s.included ? 'Included ✓' : 'Not included +'} · {s.name || 'Custom service'}</span>
                 </Button>
                 {s.included && (
                   <div className="proposal-fields">
@@ -168,16 +169,16 @@ export function ProposalWorkspace({accountId, mode, onSaved, onDirty, onBusy, on
             <small className="eyebrow">PACKAGE SUMMARY</small>
             <h2>Scope & services</h2>
           </div>
-          <span className="company-status">{totalIncluded} of {serviceCatalog.length} included</span>
+          <span className="company-status">{totalIncluded} services included</span>
         </div>
         <div className="proposal-summary-stats">
           <div className="proposal-stat-row">
             <span>Base services</span>
-            <strong>{baseIncludedCount} of 5</strong>
+            <strong>{baseIncludedCount} of {serviceCatalog.filter(s => s.tier === 'base').length}</strong>
           </div>
           <div className="proposal-stat-row">
             <span>Optional add-ons</span>
-            <strong>{addonIncludedCount} of 5</strong>
+            <strong>{addonIncludedCount} of {serviceCatalog.filter(s => s.tier === 'addon').length}</strong>
           </div>
           {customIncludedCount > 0 && (
             <div className="proposal-stat-row">
@@ -186,14 +187,14 @@ export function ProposalWorkspace({accountId, mode, onSaved, onDirty, onBusy, on
             </div>
           )}
         </div>
-        {includedCatalog.length > 0 && (
+        {totalIncluded > 0 && (
           <div className="proposal-jump-list">
-            <small className="eyebrow">CONFIGURED SERVICES</small>
-            <nav aria-label="Configured services quick jump">
-              {includedCatalog.map(s => (
+            <small className="eyebrow">INCLUDED SERVICES</small>
+            <nav aria-label="Included services quick jump">
+              {[...includedCatalog, ...includedCustom].map(s => (
                 <a key={s.id} href={`#service-${s.id}`} className="proposal-jump-item">
                   <span className="proposal-jump-bullet">✓</span>
-                  <span>{s.name}</span>
+                  <span>{s.name || 'Custom service'}</span>
                 </a>
               ))}
             </nav>
@@ -201,7 +202,7 @@ export function ProposalWorkspace({accountId, mode, onSaved, onDirty, onBusy, on
         )}
         <div className="proposal-sidebar-guidance">
           <small className="eyebrow">CIPHER’S FIELD GUIDE</small>
-          <p>Highlighted services enter the quote scope. Off means excluded. Prices and allowance are established in step 3.</p>
+          <p>{proposal!.internal ? 'Highlighted services enter the internal plan. Off means excluded. Continue to review the scope.' : 'Highlighted services enter the quote scope. Off means excluded. Prices and allowance are established in step 3.'}</p>
         </div>
         <div className="proposal-sidebar-actions">
           {!accepted && (

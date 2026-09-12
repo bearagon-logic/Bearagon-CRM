@@ -240,7 +240,10 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+.proposal-page { container: proposal-layout / inline-size; }
 .proposal-page .lane-body { max-width: 1440px; }
+.proposal-page summary { cursor:pointer; font-weight:650; color:#1e607b; }
+.proposal-service { scroll-margin-top:24px; }
 .proposal-status, .proposal-actions { display:flex; flex-wrap:wrap; align-items:center; gap:14px; justify-content:space-between; }
 .proposal-status { font-size:.875rem; color:#526b7f; }
 .proposal-steps { display:flex; flex-wrap:wrap; gap:8px; }
@@ -289,21 +292,28 @@
   grid-template-columns: minmax(0, 1fr);
   gap: 24px;
 }
-@media (min-width: 1100px) {
+@container proposal-layout (min-width: 1100px) {
   .proposal-workspace-grid {
     grid-template-columns: minmax(0, 1fr) 320px;
     align-items: start;
   }
+  .proposal-workspace-grid > .proposal-summary-sidebar {
+    position: sticky;
+    top: 20px;
+    max-height: calc(100dvh - 140px);
+    overflow-y: auto;
+  }
 }
 .proposal-main-column {
+  container: proposal-services / inline-size;
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
 .proposal-summary-sidebar {
-  position: sticky;
-  top: 20px;
+  position: static;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -313,6 +323,7 @@
   padding: 22px;
   box-shadow: 0 5px 18px #10335108;
 }
+.proposal-summary-sidebar .panel-heading { flex-wrap: wrap; gap: 12px; }
 .proposal-summary-sidebar h2 {
   font-size: 1.15rem;
   margin: 4px 0 0;
@@ -345,7 +356,7 @@
   flex-wrap: wrap;
   gap: 6px;
 }
-.proposal-jump-item {
+.proposal-summary-sidebar .proposal-jump-item {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -359,7 +370,7 @@
   font-weight: 650;
   transition: background .14s ease, border-color .14s ease;
 }
-.proposal-jump-item:hover {
+.proposal-summary-sidebar .proposal-jump-item:hover {
   background: #eef6fc;
   border-color: #268ece;
 }
@@ -381,9 +392,10 @@
 }
 .proposal-sidebar-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
   padding-top: 14px;
   border-top: 1px solid #d8e4ee;
 }
 
+.proposal-summary-sidebar .proposal-jump-item > span { display: inline; }

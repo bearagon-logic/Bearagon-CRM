@@ -158,8 +158,8 @@ test("proposal service toggles scale compactly on desktop full screen with 5-col
   const proposalCss = await readFile(path.join(root, "app/proposal.css"), "utf8");
   const companyExp = await readFile(path.join(root, "app/company-experience.css"), "utf8");
 
-  // Wide-screen 5-column layout for 10 catalog services (5 base, 5 add-on)
-  assert.match(interaction, /@media \(min-width: 1100px\) \{\s*\.proposal-toggles \{\s*grid-template-columns: repeat\(5, minmax\(0, 1fr\)\);/);
+  // Use the available service-column width, including embedded company workspaces.
+  assert.match(interaction, /@container proposal-services \(min-width: 900px\) \{\s*\.proposal-toggles \{\s*grid-template-columns: repeat\(5, minmax\(0, 1fr\)\);/);
 
   // Compact card height
   assert.match(interaction, /\.proposal-toggles button \{\s*display: grid;\s*grid-template-rows: auto 1fr auto;\s*min-height: 84px;/);
@@ -170,8 +170,8 @@ test("proposal service toggles scale compactly on desktop full screen with 5-col
   assert.match(proposalCss, /\.proposal-page \.lane-body \{ max-width: 1440px; \}/);
 
   // 2-column split workspace with companion summary sidebar
-  assert.match(proposalCss, /@media \(min-width: 1100px\) \{\s*\.proposal-workspace-grid \{\s*grid-template-columns: minmax\(0, 1fr\) 320px;/);
-  assert.match(proposalCss, /\.proposal-summary-sidebar \{\s*position: sticky;\s*top: 20px;/);
+  assert.match(proposalCss, /@container proposal-layout \(min-width: 1100px\) \{\s*\.proposal-workspace-grid \{\s*grid-template-columns: minmax\(0, 1fr\) 320px;/);
+  assert.match(proposalCss, /\.proposal-workspace-grid > \.proposal-summary-sidebar \{\s*position: sticky;\s*top: 20px;/);
 });
 
 test("Chartreuse service selection tokens provide high contrast against navy text", async () => {
@@ -184,16 +184,20 @@ test("Chartreuse service selection tokens provide high contrast against navy tex
   const token = name => theme.match(new RegExp(`--brand-chartreuse${name}: #(\\w{6})`))[1];
   const fg = theme.match(/--brand-chartreuse-foreground: #(\w{6})/)[1];
   const fgLum = luminance(rgb(fg));
+  const pill = interaction.match(/\.proposal-toggles button\[aria-pressed='true'\]>span \{\s*background: rgba\((\d+), (\d+), (\d+), ([.\d]+)\)/);
+  assert.ok(pill, 'Selected status pill has a measurable background');
+  const pillRgb = pill.slice(1, 4).map(v => Number(v) / 255), alpha = Number(pill[4]);
 
   const stops = ["-highlight", "", "-deep", "-end"].map(name => rgb(token(name)));
   for (let i = 1; i < stops.length; i++) {
     for (let t = 0; t <= 100; t++) {
       const point = stops[i - 1].map((v, c) => v + (stops[i][c] - v) * t / 100);
       assert.ok(contrast(luminance(point), fgLum) >= 4.5, "Navy label contrast across chartreuse gradient >= 4.5:1");
+      const pillPoint = point.map((v, c) => v * (1 - alpha) + pillRgb[c] * alpha);
+      assert.ok(contrast(luminance(pillPoint), fgLum) >= 4.5, 'Included status pill contrast across the gradient >= 4.5:1');
     }
   }
 
   assert.match(interaction, /var\(--brand-chartreuse-highlight/);
   assert.match(interaction, /var\(--brand-chartreuse-foreground/);
 });
-
