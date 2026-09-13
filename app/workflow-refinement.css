@@ -78,3 +78,5 @@
   .queue-item .lane-work-row { flex-basis:100%; }
   .proposal-actions { position:static; }
 }
+
+.internal-overview p { white-space: pre-wrap; overflow-wrap: anywhere; }
