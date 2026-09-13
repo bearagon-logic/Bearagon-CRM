@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowUpRight, Search } from "lucide-react";
@@ -16,6 +16,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AppShell } from "@/components/app-shell";
+
+import { WebsiteResearch } from './website-research';
+import { Textarea } from './ui/textarea';
+import { researchNotes, type CompanyResearch, type ResearchKey } from '@/lib/company-research';
 
 type Client = {
   id: string;
@@ -39,6 +43,8 @@ type Client = {
 const stages = ["All clients", "Intake", "Connections", "Building", "Testing", "Live"];
 const deliveryStages = stages.slice(1);
 const blank = {
+  website: "",
+  notes: "",
   companyName: "",
   contactName: "",
   email: "",
@@ -67,6 +73,20 @@ export default function AccountsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const creating=useRef(false);
+  function applyResearch(result:CompanyResearch,fields:ResearchKey[],ideas:number[]){
+    const next={...form};
+    const mapped=['companyName','contactName','email','phone'] as const;
+    const replacements=result.fields.filter(f=>fields.includes(f.key)&&mapped.includes(f.key as typeof mapped[number])&&next[f.key as typeof mapped[number]].trim()&&next[f.key as typeof mapped[number]]!==f.value);
+    if(replacements.length&&!window.confirm('Replace the entered '+replacements.map(f=>f.key).join(', ')+' with selected website suggestions?'))return false;
+    for(const f of result.fields)if(fields.includes(f.key)&&mapped.includes(f.key as typeof mapped[number]))next[f.key as typeof mapped[number]]=f.value;
+    const context=researchNotes(result,fields,ideas);
+    if(context)next.notes=[next.notes,context].filter(Boolean).join('\n\n');
+    if(next.notes.length>5000){setError('These suggestions exceed the 5,000-character notes limit. Select fewer items or shorten your notes.');return false;}
+    next.website=result.website;setForm(next);setError('');return true;
+  }
+  function closeAccountDialog(value:boolean){if(creating.current)return;setOpen(value);}
+  useEffect(()=>{const leave=(e:BeforeUnloadEvent)=>{if(JSON.stringify(form)!==JSON.stringify(blank)){e.preventDefault();e.returnValue='';}};window.addEventListener('beforeunload',leave);return()=>window.removeEventListener('beforeunload',leave);},[form]);
 
   function setFilter(key: "stage" | "q" | "sales", value: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -98,6 +118,7 @@ export default function AccountsPage() {
 
   async function addClient(event: FormEvent) {
     event.preventDefault();
+    if(creating.current)return;creating.current=true;
     setSaving(true);
     setError("");
     try {
@@ -120,7 +141,7 @@ export default function AccountsPage() {
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unable to add account.");
     } finally {
-      setSaving(false);
+      creating.current=false;setSaving(false);
     }
   }
 
@@ -198,11 +219,12 @@ export default function AccountsPage() {
         </div>
       </section>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="crm-dialog">
+      <Dialog open={open} onOpenChange={closeAccountDialog}>
+        <DialogContent className="crm-dialog company-create-dialog">
           <form onSubmit={addClient}>
             <DialogHeader><DialogTitle>Add an account</DialogTitle><DialogDescription>Record the business relationship and primary contact. Create delivery work only when the account is ready for onboarding.</DialogDescription></DialogHeader>
-            <div className="form-grid">
+            <WebsiteResearch website={form.website} onWebsiteChange={website=>setForm(current=>({...current,website}))} onApply={applyResearch} disabled={saving}/>
+            <fieldset disabled={saving}><div className="form-grid">
               <label>Company name<Input required value={form.companyName} onChange={(event) => setForm({ ...form, companyName: event.target.value })} /></label>
               <label>Primary contact<Input required value={form.contactName} onChange={(event) => setForm({ ...form, contactName: event.target.value })} /></label>
               <label>Email<Input required type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>
@@ -211,8 +233,9 @@ export default function AccountsPage() {
               <div className="form-choice"><Checkbox id="start-onboarding" checked={form.startOnboarding} onCheckedChange={(checked) => setForm({ ...form, startOnboarding: checked === true, ...(checked === true ? { relationshipType: "client" } : {}) })} /><label htmlFor="start-onboarding"><b>Start onboarding now</b><small>Create the delivery engagement and standard checklist. Leave this off for a lead, partner, or relationship that is not ready for delivery.</small></label></div>
               {form.startOnboarding && <><label>Starting stage<select value={form.stage} onChange={(event) => setForm({ ...form, stage: event.target.value })}>{deliveryStages.map((item) => <option key={item}>{item}</option>)}</select></label><label>Target date<Input type="date" value={form.dueDate} onChange={(event) => setForm({ ...form, dueDate: event.target.value })} /></label></>}
             </div>
-            {error && <p className="form-error">{error}</p>}
-            <DialogFooter><Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button type="submit" disabled={saving}>{saving ? "Saving…" : "Create account"}</Button></DialogFooter>
+            <label className="research-notes-label">Company notes<Textarea value={form.notes} maxLength={5000} onChange={e=>setForm({...form,notes:e.target.value})}/></label></fieldset>
+            {error && <p role="alert" className="form-error">{error}</p>}
+            <DialogFooter><Button type="button" variant="outline" onClick={() => closeAccountDialog(false)} disabled={saving}>Cancel</Button><Button type="submit" disabled={saving}>{saving ? "Saving…" : "Create account"}</Button></DialogFooter>
           </form>
         </DialogContent>
       </Dialog>

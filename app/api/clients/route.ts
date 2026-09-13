@@ -1,3 +1,4 @@
+import { publicWebsite } from '@/lib/company-research';
 import { asc, desc, eq, ne } from "drizzle-orm";
 import { getDb } from "../../../db";
 import {
@@ -134,6 +135,7 @@ export async function POST(request: Request) {
     }
 
     const value = normalized.value;
+    try { if(value.website)value.website=publicWebsite(value.website); } catch { return Response.json({error:"Enter a valid public company website."},{status:400}); }
     const db = getDb();
     const accountId = newId("acct");
     const engagementId = newId("eng");
@@ -156,6 +158,8 @@ export async function POST(request: Request) {
     const accountStatement = db.insert(accounts).values({
       id: accountId,
       name: value.companyName,
+      website: value.website,
+      notes: value.notes,
       relationshipType,
       updatedAt: now,
     });

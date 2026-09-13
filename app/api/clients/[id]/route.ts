@@ -143,6 +143,7 @@ async function loadAccountDetail(id: string) {
       nextStep: engagement?.nextStep ?? "Start onboarding",
       dueDate: engagement?.targetDate ?? "",
       notes: account.notes,
+      website: account.website,
     },
     contacts: contactRows,
     engagement,

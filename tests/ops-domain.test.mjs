@@ -20,6 +20,8 @@ test("normalizes an account without conflating it with a workspace", () => {
   assert.equal(result.error, undefined);
   assert.deepEqual(result.value, {
     companyName: "Acme Service Co",
+    website: "",
+    notes: "",
     contactName: "Avery Owner",
     email: "avery@example.com",
     phone: "",
