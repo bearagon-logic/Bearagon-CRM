@@ -1,11 +1,13 @@
 "use client";
+import type { ReactNode } from 'react';
 import { Button } from './ui/button';
 import { internalStage } from '@/lib/internal-operations';
 import type { ProposalState } from '@/lib/proposal-model';
 
-export function InternalOverview({ proposal, owner, notes, onWork, onServices, onPlan }: {
+export function InternalOverview({ proposal, owner, ownerEditor, notes, onWork, onServices, onPlan }: {
   proposal: ProposalState | null;
   owner: string;
+  ownerEditor?: ReactNode;
   notes: string;
   onWork: () => void;
   onServices: () => void;
@@ -35,7 +37,7 @@ export function InternalOverview({ proposal, owner, notes, onWork, onServices, o
       </section>
     </div>
     <aside className="company-record-side">
-      <section className="company-panel"><h2>Operations owner</h2><p>{owner || 'Unassigned'}</p></section>
+      <section className="company-panel" id="operations-owner"><h2>Operations owner</h2>{ownerEditor || <p>{owner || 'Unassigned'}</p>}</section>
       <section className="company-panel"><h2>Services & monitoring</h2><p>Review connected services, installations and the latest reports from Console.</p><Button variant="outline" onClick={onServices}>Open services & monitoring</Button></section>
     </aside>
   </div>;

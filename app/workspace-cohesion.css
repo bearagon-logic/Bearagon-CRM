@@ -63,3 +63,7 @@
 
 .email-walkthrough .walkthrough-rail-meta { display:block; }
 .work-view .approval-actions button:disabled { opacity:.55; cursor:wait; }
+
+.operations-owner-fields { border:0; padding:0; margin:12px 0 0; min-width:0; }
+.operations-owner-fields label { display:grid; gap:6px; font-size:.9375rem; }
+.operations-owner-fields select { width:100%; min-height:44px; padding:8px 10px; border:1px solid #b8cede; border-radius:8px; background:#fff; color:#17324d; }
