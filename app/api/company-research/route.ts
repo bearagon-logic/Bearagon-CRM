@@ -1,3 +1,4 @@
+import { boundedText } from '@/lib/server/public-company-pages';
 import { env } from 'cloudflare:workers';
 import { getRawDb } from '@/db';
 import { publicWebsite } from '@/lib/company-research';
@@ -9,7 +10,7 @@ export async function POST(request: Request) {
   if(!actor)return operatorRequiredResponse();
   const headers={'cache-control':'no-store'};
   try {
-    const raw=await request.text();
+    const raw=await boundedText(request,2000);
     if(raw.length>2000)return Response.json({error:'Enter one company website.'},{status:400,headers});
     let website: string;
     try { website=publicWebsite((JSON.parse(raw) as {website?:unknown}).website); }

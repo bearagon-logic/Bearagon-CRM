@@ -22,7 +22,7 @@ export function publicWebsite(value: unknown): string {
 }
 const text = (length: number) => z.string().trim().min(1).max(length);
 export const researchSchema = z.object({
-  fields: z.array(z.object({ key: z.enum(['companyName','contactName','email','phone','description','services','serviceArea','businessHours']), value: text(800), sourceUrl: text(1000) })).max(8),
+  fields: z.array(z.object({ key: z.enum(['companyName','contactName','email','phone','description','services','serviceArea','businessHours']), value: text(800), evidence: text(350), sourceUrl: text(1000) })).max(8),
   automations: z.array(z.object({ title: text(100), evidence: text(350), benefit: text(350), questions: z.array(text(200)).min(1).max(3), sourceUrl: text(1000) })).max(3),
   nextUrls: z.array(text(1000)).max(3),
 });

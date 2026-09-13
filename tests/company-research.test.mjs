@@ -6,11 +6,12 @@ import {createServer} from 'vite';
 const root=new URL('..',import.meta.url).pathname.replace(/^\/([A-Za-z]:)/,'$1');
 const vite=await createServer({appType:'custom',configFile:false,root,cacheDir:root+'/.vite-test-cache/research',optimizeDeps:{noDiscovery:true},server:{middlewareMode:true,hmr:false}});after(()=>vite.close());
 const {publicWebsite,researchNotes}=await vite.ssrLoadModule('/lib/company-research.ts');
-const {readInteraction,verifiedResearch,researchCompany,reserveResearch}=await vite.ssrLoadModule('/lib/server/company-research.ts');
+const {readInteraction,verifiedResearch,researchCompany,reserveResearch,groundedResearch}=await vite.ssrLoadModule('/lib/server/company-research.ts');
 const {saveCompanyContext,contextInput}=await vite.ssrLoadModule('/lib/server/company-context.ts');
 const {normalizeAccountInput}=await import('../lib/ops-domain.mjs');
+const {publicAddress,publicHost,boundedText}=await vite.ssrLoadModule('/lib/server/public-company-pages.ts');
 const website='https://business.demo/';
-const facts={fields:[{key:'companyName',value:'Test business',sourceUrl:website}],automations:[{title:'Draft inquiry follow-up',evidence:'Public inquiry form',benefit:'Faster review of inquiries',questions:['Which inbox receives inquiries?'],sourceUrl:website}],nextUrls:[]};
+const facts={fields:[{key:'companyName',value:'Test business',evidence:'Test business',sourceUrl:website}],automations:[{title:'Draft inquiry follow-up',evidence:'Public inquiry form',benefit:'Faster review of inquiries',questions:['Which inbox receives inquiries?'],sourceUrl:website}],nextUrls:[]};
 const response=(content=facts,url=website)=>({status:'completed',steps:[{type:'url_context_result',status:'success',url},{type:'model_output',content:[{type:'text',text:JSON.stringify(content)}]}]});
 test('public website input rejects private, credentialed and unsafe URL forms',()=>{
   assert.equal(publicWebsite('business.demo'),'https://business.demo/');
@@ -24,14 +25,26 @@ test('research removes unsourced, duplicate and malformed facts and never trusts
   assert.throws(()=>verifiedResearch(facts,[],website),/No source-backed/);
   assert.throws(()=>readInteraction({status:'incomplete',steps:[]},website),/did not finish/);
 });
-test('provider requests contain only public URLs, limit follow-up pages and retain first-page facts on a failed second lookup',async()=>{
-  const calls=[];
-  const fetcher=async(url,options)=>{calls.push({url,...options,body:JSON.parse(options.body)});if(calls.length===1)return Response.json(response({...facts,nextUrls:['https://business.demo/contact','https://other.demo/about','http://127.0.0.1/']}));return new Response('',{status:429});};
-  const result=await researchCompany(website,'fixture-key',fetcher);
-  assert.equal(calls.length,2);assert.equal(calls[0].headers['x-goog-api-key'],'fixture-key');assert.equal(calls[0].body.store,false);
-  assert.ok(!calls[1].body.input.includes('other.demo'));assert.ok(!calls[1].body.input.includes('127.0.0.1'));
-  assert.match(result.warning,/first page only/);assert.ok(!JSON.stringify(result).includes('fixture-key'));
-  await assert.rejects(()=>researchCompany(website,'fixture-key',async()=>new Response('secret provider error',{status:403})),/rejected access/);
+test('provider receives only freshly fetched public page content and no browsing tools',async()=>{
+  const pages=[{url:website,text:'Test business. Public inquiry form.',emails:[],phones:[],links:[]}];const calls=[];
+  const fetcher=async(url,options)=>{calls.push({url,...options,body:JSON.parse(options.body)});return Response.json(response());};
+  const result=await researchCompany(website,'fixture-key',fetcher,async()=>pages);
+  assert.equal(calls.length,1);assert.equal(calls[0].headers['x-goog-api-key'],'fixture-key');assert.equal(calls[0].body.store,false);assert.equal(calls[0].body.tools,undefined);
+  assert.match(calls[0].body.input,/Public inquiry form/);assert.ok(!JSON.stringify(result).includes('fixture-key'));
+  await assert.rejects(()=>researchCompany(website,'fixture-key',async()=>new Response('secret provider error',{status:403}),async()=>pages),/rejected access/);
+});
+test('current-page matching removes invented contact details despite a correct source URL',()=>{
+  const pages=[{url:website,text:'Test business. Public inquiry form. Email actual@business.demo or call (479) 970-3075.',emails:['actual@business.demo'],phones:['+14799703075'],links:[]}];
+  const content={...facts,fields:[...facts.fields,{key:'email',value:'invented@business.demo',evidence:'Public inquiry form.',sourceUrl:website},{key:'phone',value:'303-555-0100',evidence:'Public inquiry form.',sourceUrl:website}]};
+  const result=groundedResearch(content,pages,website);assert.equal(result.fields.length,1);assert.match(result.warning,/current page/);
+  content.fields[1].value='actual@business.demo';content.fields[2].value='(479) 970-3075';assert.equal(groundedResearch(content,pages,website).fields.length,3);
+});
+test('page fetch guard rejects private DNS answers and oversized responses',async()=>{
+  for(const ip of ['127.0.0.1','10.2.1.1','169.254.169.254','172.16.0.1','192.168.1.1','100.64.1.1','::1','fc00::1','fe80::1','::ffff:127.0.0.1'])assert.equal(publicAddress(ip),false);
+  assert.equal(publicAddress('8.8.8.8'),true);assert.equal(publicAddress('2606:4700:4700::1111'),true);
+  await assert.rejects(()=>publicHost('business.demo',async()=>Response.json({Status:0,Answer:[{type:1,data:'127.0.0.1'}]})),/not a public/);
+  await assert.rejects(()=>boundedText(new Response('x'.repeat(101)),100),/too large/);
+  assert.equal(await boundedText(new Response('public text'),100),'public text');
 });
 test('selected notes retain provenance and mark automation ideas as unapproved; creation retains website and notes',()=>{
   const result={...facts,website,researchedAt:'2026-09-13T00:00:00Z',sources:[website],warning:''};
