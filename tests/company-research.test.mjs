@@ -62,3 +62,5 @@ test('research budget is shared across requests without modifying accounts',asyn
   for(let i=0;i<4;i++){sqlite.prepare("UPDATE operator_audit_events SET created_at=? WHERE actor_id='operator'").run(new Date(Date.now()-120000).toISOString());await reserveResearch(db,actor);await reserveResearch(db,actor);}
   sqlite.prepare("UPDATE operator_audit_events SET created_at=? WHERE actor_id='operator'").run(new Date(Date.now()-120000).toISOString());await assert.rejects(()=>reserveResearch(db,actor),/limit reached/);sqlite.close();
 });
+
+test('URL tool result entries supply retrieval evidence while failed entries do not',()=>{const raw=response();raw.steps[0]={type:'url_context_result',result:[{url:website,status:'success'}]};assert.deepEqual(readInteraction(raw,website).sources,[website]);raw.steps[0].result[0].status='error';assert.deepEqual(readInteraction(raw,website).sources,[]);});

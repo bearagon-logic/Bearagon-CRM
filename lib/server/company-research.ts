@@ -25,11 +25,19 @@ export function readInteraction(raw: unknown, website: string) {
         if (a.type === 'url_citation' && typeof a.url === 'string' && sameSite(a.url,website)) sources.add(publicWebsite(a.url));
       }
     }
-    if (step.type === 'url_context_result' && step.status === 'success' && typeof step.url === 'string' && sameSite(step.url,website)) sources.add(publicWebsite(step.url));
+    if (step.type === 'url_context_result') {
+      const retrieved=Array.isArray(step.result)?step.result:[step];
+      for(const item of retrieved) {
+        const url=item.url || item.retrieved_url;
+        const status=item.status || item.url_retrieval_status;
+        if(typeof url==='string'&&sameSite(url,website)&&(status==='success'||status==='URL_RETRIEVAL_STATUS_SUCCESS'||!status&&typeof item.snippet==='string'&&item.snippet.trim()))sources.add(publicWebsite(url));
+      }
+    }
   }
   let content: ResearchContent;
   try { content = researchSchema.parse(JSON.parse(texts.join('').replace(/^```(?:json)?\s*|\s*```$/g,''))); }
   catch { throw new ResearchError('Gemini returned an incomplete research result. Try again; your form has been kept.'); }
+  if(!sources.size)console.info('company_research_source_diagnostic',JSON.stringify({fields:content.fields.length,ideas:content.automations.length,steps:(data.steps||[]).map(step=>({type:step.type,keys:Object.keys(step),resultKeys:Array.isArray(step.result)?step.result.map(item=>Object.keys(item)):undefined,status:step.status,contentTypes:Array.isArray(step.content)?step.content.map(b=>({type:b.type,annotationTypes:Array.isArray(b.annotations)?b.annotations.map((a:{type?:unknown})=>a.type):[]})):undefined}))}));
   return {content, sources: [...sources]};
 }
 export function verifiedResearch(content: ResearchContent, sources: string[], website: string): CompanyResearch {
@@ -82,3 +90,4 @@ export async function reserveResearch(db: ReturnType<typeof getRawDb>, actor: Op
     .bind('audit_'+crypto.randomUUID(),crypto.randomUUID(),actor.userId,actor.email,actor.displayName,now,actor.userId,new Date(Date.now()-3600000).toISOString(),actor.userId,new Date(Date.now()-60000).toISOString()).run();
   if(result.meta.changes!==1)throw new ResearchError('Research limit reached. Allow a minute between lookups; each operator can run ten per hour.',429);
 }
+
