@@ -29,7 +29,7 @@
   .ops-add-account span, .ops-nav-group > small, .ops-sidebar .ops-navigation a span { display:block; }
   .ops-add-account { width:auto; margin:16px 0; }
   .ops-sidebar .ops-navigation a { justify-content:flex-start; padding:0 12px; gap:10px; }
-  .ops-sidebar-footer { justify-content:flex-start; gap:10px; }
+  .ops-sidebar-footer { justify-content:flex-start; gap:10px; padding-inline:10px; }
   .ops-brand { gap:10px; }
 }
 .queue-item { display:flex; align-items:center; border-bottom:1px solid #e1eaf2; }

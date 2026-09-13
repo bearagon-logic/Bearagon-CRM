@@ -37,7 +37,7 @@ button, input, select, textarea { font-family: Arial, sans-serif; }
 .ops-sidebar .ops-navigation a.active { background: linear-gradient(90deg, #174c7e, #123b65); color: #fff; box-shadow: inset 3px 0 #87d6fb; }
 .ops-sidebar .ops-navigation a.active > svg:first-child { color: #d8f4ff; }
 .ops-nav-chevron { width: 14px !important; height: 14px !important; margin-left: auto; color: #6b94b6 !important; }
-.ops-sidebar-footer { margin-top: auto; display: flex; align-items: center; gap: 9px; padding: 16px 9px 4px; border-top: 1px solid #1c4268; }
+.ops-sidebar-footer { margin-top: auto; display: flex; align-items: center; gap: 9px; padding: 12px 10px; border-top: 1px solid #1c4268; }
 .ops-operator-avatar { width: 31px; height: 31px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 50%; background: #a8ddf8; color: #0a294b; font-size: 10px; font-weight: 800; }
 .ops-sidebar-footer > span:last-child { min-width: 0; display: grid; gap: 3px; }
 .ops-sidebar-footer b { color: #e5f1fb; font-size: 10px; }

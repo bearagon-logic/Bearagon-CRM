@@ -89,3 +89,20 @@
 @media(max-width:540px) { .research-start button { width: 100%; } .website-research { padding: 12px; } }
 
 .research-review summary { cursor: pointer; font-weight: 600; font-size: .875rem; }
+
+/* Keep company identity and work status aligned when secondary columns hide. */
+.account-rows .row > span, .account-rows .name > span { min-width:0; }
+.account-rows .name > span { overflow-wrap:anywhere; }
+.account-rows .name i { flex:0 0 35px; white-space:nowrap; }
+.account-rows .pill { display:inline-flex; align-items:center; white-space:nowrap; }
+@media (max-width:900px) {
+  .account-rows .row { grid-template-columns:minmax(0,1fr) 9rem; gap:12px; }
+  .account-rows .row > span:nth-child(3) { display:block; }
+  .account-rows .row > span:nth-child(2),
+  .account-rows .row > span:nth-child(4),
+  .account-rows .row > span:nth-child(5) { display:none; }
+  .account-rows .client { padding-block:14px; }
+}
+.operation-company-link { color:inherit; text-decoration:underline; text-decoration-color:#aac7db; text-underline-offset:4px; }
+.operation-company-link:hover { color:#126fa8; }
+.operation-company-link:focus-visible { outline:2px solid #126fa8; outline-offset:4px; border-radius:2px; }

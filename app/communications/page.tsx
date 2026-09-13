@@ -64,7 +64,6 @@ export default function Communications() {
       <IntakeFeeds key={feedRevision} onImported={()=>{void refresh().catch((e)=>setError(e.message));}} onReview={(r)=>{setReviewId(r.id);setForm({...empty,...r.event,source:r.event.source==="retell"?"phone":"website"});setError("");setOpen(true);}}/>
       {error && !open && <p role="alert" className="form-error">{error} <button onClick={() => { setError(""); refresh().catch((e) => setError(e.message)); }}>Retry</button></p>}
       {notice && <p role="status" className="intake-notice">{notice}</p>}
-      <Button type="button" variant="outline" onClick={()=>setFilter("junk")} aria-pressed={filter==="junk"}>View test / spam</Button>
       <div className="intake-toolbar"><label className="intake-search"><Search aria-hidden="true"/><Input aria-label="Search inquiries" placeholder="Search company, contact, or message" value={query} onChange={(e) => setQuery(e.target.value)} /></label><label>Show<select value={filter} onChange={(e) => setFilter(e.target.value)}><option value="open">Open inquiries</option><option value="new">New</option><option value="working">Working</option><option value="qualified">Qualified</option><option value="overdue">Overdue follow-up</option><option value="closed">Closed</option><option value="junk">Test / spam</option><option value="all">All inquiries</option></select></label><span>{visible.length} shown</span></div>
       <div className="intake-workspace">
         <section className="intake-list" aria-label="Inquiry list">
