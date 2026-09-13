@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { AppShell } from './app-shell';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
@@ -11,7 +12,12 @@ import type { ProposalState } from '@/lib/proposal-model';
 type Payload = { proposal: ProposalState; closed?: boolean; archived?: boolean; error?: string };
 const statusLabel = (s?: string) => s === 'completed' ? 'Completed' : s === 'blocked' ? 'Blocked' : s === 'in_progress' ? 'In progress' : 'Not started';
 
-export function EmailWalkthrough({accountId,initialData,initialStep}:{accountId:string;initialData?:Payload;initialStep?:string}) {
+export function EmailWalkthroughWorkspace({accountId}:{accountId:string}) {
+  const [internal,setInternal]=useState<boolean|null>(null);
+  return <AppShell activeSection={internal===null?'/playbooks':internal?'/operations':'/onboarding'}><EmailWalkthrough accountId={accountId} onContext={setInternal}/></AppShell>;
+}
+
+export function EmailWalkthrough({accountId,initialData,initialStep,onContext}:{accountId:string;initialData?:Payload;initialStep?:string;onContext?:(internal:boolean)=>void}) {
   const initialRun=initialData?.proposal.orders.find(o=>o.key==='email')?.emailRun;
   const start=initialStep||emailResumeStep(initialRun,!!initialData?.closed||!!initialData?.archived);
   const initialConfig=initialRun?.config||(initialData?emailDefaults(initialData.proposal.draft):null);
@@ -38,6 +44,8 @@ export function EmailWalkthrough({accountId,initialData,initialStep}:{accountId:
   const guideUpgrade=!!run&&run.version!==emailGuideVersion&&supportedEmailGuide(run.version);
   const technicalChange=changedFields.some(k=>k!=='owner')||guideUpgrade;
   const needsReset=!!run&&technicalChange&&(Object.keys(run.progress).length>0||order?.status!=='to_build');
+
+  useEffect(()=>{if(proposal)onContext?.(proposal.internal);},[proposal?.internal,onContext]);
 
   function rememberCurrent() {
     if(active==='configuration'&&config)drafts.current.configuration=rememberDraft(config,draftBase);
@@ -96,7 +104,7 @@ export function EmailWalkthrough({accountId,initialData,initialStep}:{accountId:
         </div>
         <span className="walkthrough-count">{completed} / {steps.length||6} steps recorded</span>
       </div>
-      <p>Follow the saved route. Build in the harness. Keep evidence for the next person.</p>
+
       <progress aria-label="Recorded walkthrough progress" value={completed} max={steps.length||6}/>
     </header>
 
@@ -105,6 +113,13 @@ export function EmailWalkthrough({accountId,initialData,initialStep}:{accountId:
     {dirty&&<p className="walkthrough-notice" role="status">{unsaved.size} unsaved draft(s). You can open other steps and return to these notes. Save before leaving this walkthrough.</p>}
     {error&&<div role="alert" className="company-error">{error} Your fields are still here. <Button variant="outline" disabled={busy} onClick={()=>void load(true)}>Load latest without clearing my fields</Button></div>}
 
+    <label className="walkthrough-step-picker">Walkthrough step
+      <select value={active} disabled={busy} onChange={e=>go(e.target.value)}>
+        <option value="configuration">Configuration{unsaved.has('configuration')?' · Unsaved draft':''}</option>
+        {steps.map((s,i)=><option key={s.id} value={s.id}>{i+1}. {s.title} · {unsaved.has(s.id)?'Unsaved draft':statusLabel(run?.progress[s.id]?.status)}</option>)}
+        {run&&<option value="summary">Walkthrough review</option>}
+      </select>
+    </label>
     <div className="walkthrough-layout">
       <aside className="walkthrough-rail" aria-label="Email walkthrough steps">
         <Button
@@ -132,7 +147,7 @@ export function EmailWalkthrough({accountId,initialData,initialStep}:{accountId:
           >
             <span className="rail-btn-icon" aria-hidden="true">{run?.progress[s.id]?.status==='completed' ? '✓' : run?.progress[s.id]?.status==='blocked' ? '!' : (i+1)}</span>
             <span className="rail-btn-content">
-              <span className="rail-btn-title">{i+1}. {s.title}</span>
+              <span className="rail-btn-title">{s.title}</span>
               <small className="rail-btn-sub">{unsaved.has(s.id)?'Unsaved draft':statusLabel(run?.progress[s.id]?.status)}</small>
             </span>
           </Button>
@@ -152,10 +167,7 @@ export function EmailWalkthrough({accountId,initialData,initialStep}:{accountId:
           </span>
         </Button>}
 
-        <div className="walkthrough-rail-meta">
-          <p>Owner: {run?.config.owner||'Not assigned'}<br/>Guide: {run?.version||emailGuideVersion}</p>
-          <small>Guide steward: Bearagon delivery team<br/>Provider references checked September 11, 2026. Field validation by the team is still needed.</small>
-        </div>
+
       </aside>
 
       <section className="walkthrough-main">
@@ -292,6 +304,7 @@ export function EmailWalkthrough({accountId,initialData,initialStep}:{accountId:
                   {error&&<Button type="button" variant="outline" disabled={conflict} onClick={()=>void save(update('in_progress'))}>Save as in progress</Button>}
                 </div>
                 <div className="walkthrough-actions-right">
+                  <Button type="button" variant="outline" className="walkthrough-btn-secondary" onClick={()=>go(index>0?steps[index-1].id:'configuration')}>Back</Button>
                   <Button type="button" variant="default" className="walkthrough-btn-primary" disabled={conflict||!entry.evidence.trim()||prerequisites.length>0||configIssues.length>0} onClick={()=>void save(update('completed'),true)}>
                     {index===steps.length-1?'Complete walkthrough step':'Complete step & continue →'}
                   </Button>
@@ -329,6 +342,11 @@ export function EmailWalkthrough({accountId,initialData,initialStep}:{accountId:
           <p>Your team’s instructions and evidence are saved. This does not mark the automation tested, approve launch or verify runtime health.</p>
           <Link href={`/clients/${accountId}?tab=delivery`}>Return to build & test →</Link>
         </div>}
+
+        <details className="walkthrough-reference"><summary>Owner & guide details</summary>
+          <p>Owner: {run?.config.owner||'Not assigned'}<br/>Guide: {run?.version||emailGuideVersion}</p>
+          <small>Guide steward: Bearagon delivery team<br/>Provider references checked September 11, 2026. Field validation by the team is still needed.</small>
+        </details>
 
         <details className="walkthrough-reference">
           <summary>Accepted scope & shared setup reference</summary>

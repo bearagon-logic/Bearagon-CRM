@@ -3,6 +3,7 @@ import { useState } from "react";
 import { InquiryCleanup } from "@/components/inquiry-cleanup";
 import Link from "next/link";
 import { ArrowUpRight, ListTodo, RefreshCw } from "lucide-react";
+import { WorkNavigation } from '@/components/work-navigation';
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { useWorkspaceRecords } from "@/components/use-workspace-records";
@@ -23,12 +24,12 @@ export function WorkQueue() {
   const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
   const items = [...queueItems(inquiries.records, deliveries.records, decisions.records, today),...internal.records].sort((a,b)=>a.priority-b.priority);
   const visible = items.filter(i=>(owner==='All owners'||i.owner===owner)&&(timing==='All dates'||timing==='Overdue'&&!!i.due&&i.due<today||timing==='No date'&&!i.due)).filter(i => filter === "All work" || (filter === "Delivery" ? i.kind.includes("delivery") || i.kind === "Delivery" : i.kind === filter));
-  return <AppShell><main className="lane-page">
+  return <AppShell><main className="lane-page work-view">
     <header className="lane-header"><div><small>YOUR OPERATING PICTURE</small><h1>Work queue</h1><p>Follow up, deliver, and keep the next decision moving.</p></div><Button variant="outline" disabled={loading} onClick={() => sources.forEach(s => s.refresh())}><RefreshCw size={16} />Refresh</Button></header>
-    <div className="lane-body">
+    <WorkNavigation current="/"/><div className="lane-body">
       {notice && <p role="status">{notice}</p>}
-      <div className="lane-shortcuts"><Link href="/communications">Inquiry inbox & intake review <ArrowUpRight /></Link><Link href="/approvals">Review approvals <ArrowUpRight /></Link><Link href="/operations">Ongoing operations <ArrowUpRight /></Link></div>
-      <p className="lane-note">Saved inquiries and delivery records appear here. Open the inquiry inbox to sync website/call receipts and resolve identity review. Current Console reports are retrieved within each company’s Services page.</p>
+
+      <p className="lane-note">Prioritized follow-ups, delivery work and decisions. Use Inbox to review new website and call inquiries.</p>
       {sources.filter(s => s.error).map(s => <p className="lane-error" role="alert" key={s.label}>{s.label}: {s.error} <Link href={s.href}>Open {s.label.toLowerCase()}</Link></p>)}
       <section className="lane-panel" aria-labelledby="queue-title"><div className="lane-panel-heading"><h2 id="queue-title">Next actions</h2><label className="lane-filter">Show<select value={filter} onChange={e => setFilter(e.target.value)}>{["All work", "Inquiry", "Delivery", "Internal automation", "Approval"].map(v => <option key={v}>{v}</option>)}</select></label><label className="lane-filter">Owner<select value={owner} onChange={e=>setOwner(e.target.value)}>{['All owners',...new Set(items.map(i=>i.owner))].map(v=><option key={v}>{v}</option>)}</select></label><label className="lane-filter">Due<select value={timing} onChange={e=>setTiming(e.target.value)}>{['All dates','Overdue','No date'].map(v=><option key={v}>{v}</option>)}</select></label></div>
         {loading && <p role="status" className="lane-empty">Loading saved work…</p>}

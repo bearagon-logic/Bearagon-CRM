@@ -6,6 +6,7 @@ import { OwnerSelect } from "@/components/owner-select";
 import { InquiryCleanup } from "@/components/inquiry-cleanup";
 import { isJunkInquiry } from "@/lib/inquiry-cleanup";
 import { Inbox, Plus, Search, ArrowUpRight } from "lucide-react";
+import { WorkNavigation } from '@/components/work-navigation';
 import { AppShell } from "@/components/app-shell";
 import { IntakeFeeds } from "@/components/intake-feeds";
 import { Button } from "@/components/ui/button";
@@ -57,9 +58,9 @@ export default function Communications() {
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to save follow-up."); }
     finally { setSaving(false); }
   }
-  return <AppShell><main className="ops-intake-page">
-    <header className="ops-intake-header"><div><small>RELATIONSHIPS · INBOX</small><h1>Inquiries</h1><p>From first contact to a clear next step.</p></div><Button onClick={() => { setReviewId(""); setForm(empty); setError(""); setRequestKey(crypto.randomUUID()); setOpen(true); }}><Plus aria-hidden="true" />Record inquiry</Button></header>
-    <div className="ops-intake-body">
+  return <AppShell><main className="ops-intake-page work-view">
+    <header className="ops-intake-header"><div><small>RELATIONSHIPS · INBOX</small><h1>Inbox</h1><p>From first contact to a clear next step.</p></div><Button onClick={() => { setReviewId(""); setForm(empty); setError(""); setRequestKey(crypto.randomUUID()); setOpen(true); }}><Plus aria-hidden="true" />Record inquiry</Button></header>
+    <WorkNavigation current="/communications"/><div className="ops-intake-body">
       <IntakeFeeds key={feedRevision} onImported={()=>{void refresh().catch((e)=>setError(e.message));}} onReview={(r)=>{setReviewId(r.id);setForm({...empty,...r.event,source:r.event.source==="retell"?"phone":"website"});setError("");setOpen(true);}}/>
       {error && !open && <p role="alert" className="form-error">{error} <button onClick={() => { setError(""); refresh().catch((e) => setError(e.message)); }}>Retry</button></p>}
       {notice && <p role="status" className="intake-notice">{notice}</p>}

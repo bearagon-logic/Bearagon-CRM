@@ -205,3 +205,14 @@ test("Neon blue service selection tokens provide high contrast against navy text
   assert.match(interaction, /var\(--brand-neon-blue-highlight/);
   assert.match(interaction, /var\(--brand-neon-blue-foreground/);
 });
+
+
+test('work navigation preserves canonical destinations and identifies exactly one current view', async () => {
+  const { WorkNavigation } = await vite.ssrLoadModule('/components/work-navigation.tsx');
+  for (const current of ['/', '/communications', '/approvals', '/operations']) {
+    const html=renderToStaticMarkup(React.createElement(WorkNavigation,{current}));
+    assert.equal((html.match(/aria-current="page"/g)||[]).length,1);
+    assert.ok(html.match(/<a[^>]*aria-current="page"[^>]*>/)?.[0].includes('href="'+current+'"'));
+    for(const label of ['Next actions','Inbox','Approvals','Operations'])assert.ok(html.includes(label));
+  }
+});

@@ -8,6 +8,7 @@ import "./company-experience.css";
 import "./interaction-theme.css";
 import "./workflow-refinement.css";
 import "./email-walkthrough.css";
+import "./workspace-cohesion.css";
 
 export const metadata: Metadata = {
   title: {

@@ -36,7 +36,7 @@ const workspaceItems: NavItem[] = [
 
 const systemItems: NavItem[] = [
   { href: "/connections", label: "Connections", icon: Plug },
-  { href: "/security", label: "Security", icon: ShieldCheck },
+  { href: "/security", label: "Security reference", icon: ShieldCheck },
   { href: "/cipher", label: "Cipher", icon: Bot },
 ];
 
