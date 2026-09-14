@@ -9,6 +9,18 @@ import { emailDefaults, emailConfigIssues, emailGuideVersion, supportedEmailGuid
 import { emailResumeStep, entryFrom, rememberDraft, withoutSavedDraft, type WalkthroughDrafts, type WalkthroughEntry as Entry } from '@/lib/email-walkthrough-state';
 import type { ProposalState } from '@/lib/proposal-model';
 
+// Presentation copy applies to existing saved guides without resetting their progress.
+const stepObjectives:Record<string,string>={
+  authority:'Confirm the mailboxes, permitted actions, responsible reviewer and test arrangement so setup can begin.',
+  'connect-microsoft':'Connect the agreed Microsoft 365 mailbox and verify that the required read and draft actions work.',
+  'connect-google':'Connect the agreed Google Workspace mailbox and verify that the required read and draft actions work.',
+  build:'Prepare a repeatable email triage and draft workflow with clear routing, duplicate handling and an error path.',
+  'send-review':'Define and test the approved automatic-reply cases, review fallback and stop controls before activation.',
+  'draft-review':'Confirm that generated replies reach the named reviewer and are sent only after human review.',
+  test:'Verify normal, excluded and failure cases against expected results, and record the evidence.',
+  handoff:'Hand over the verified build, test results, maintenance ownership and monitoring follow-up.'
+};
+
 type Payload = { proposal: ProposalState; closed?: boolean; archived?: boolean; error?: string };
 const statusLabel = (s?: string) => s === 'completed' ? 'Completed' : s === 'blocked' ? 'Blocked' : s === 'in_progress' ? 'In progress' : 'Not started';
 
@@ -258,7 +270,7 @@ export function EmailWalkthrough({accountId,initialData,initialStep,onContext}:{
           <div className="walkthrough-step-context">
             <div className="walkthrough-step-why">
               <span className="context-label">OBJECTIVE</span>
-              <p>{current.why}</p>
+              <p>{stepObjectives[current.id] || "Complete the steps below and record the observed result."}</p>
             </div>
             <div className="walkthrough-step-instructions">
               <span className="context-label">EXECUTION STEPS</span>
