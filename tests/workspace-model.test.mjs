@@ -82,3 +82,8 @@ test("navigation retains the original artwork and reference resources", async ()
   const security = await readFile(path.join(root, "app/security/page.tsx"), "utf8");
   assert.ok(security.includes("Security reference"));
 });
+
+test('qualified inquiries appear as leads while keeping their original follow-up destination',()=>{
+ const [row]=queueItems([{id:'lead-one',companyName:'Lead',status:'qualified',owner:'Emily',nextAction:'Call tomorrow',followUpDate:''}],[],[],'2026-09-13');
+ assert.equal(row.kind,'Lead');assert.equal(row.title,'Call tomorrow');assert.equal(row.href,'/communications?inquiry=lead-one');
+});

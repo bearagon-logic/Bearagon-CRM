@@ -1,3 +1,4 @@
+import { routeInquiry } from '@/lib/server/inquiry-routing';
 import { and, desc, eq, sql } from "drizzle-orm";
 import { getDb, getRawDb } from "@/db";
 import { handoffInquiry } from '@/lib/server/inquiry-handoff';
@@ -66,6 +67,12 @@ export async function PATCH(request: Request) {
   const actor = await getOperatorIdentity(request);
   if (!actor) return operatorRequiredResponse();
   const body=await request.json().catch(()=>null);
+  if(body&&typeof body==='object'&&'action' in body&&typeof body.action==='string'&&['lead','workflow'].includes(body.action)) {
+    const input=z.object({action:z.enum(['lead','workflow']),id:z.string().min(1).max(100),accountId:z.string().min(1).max(100),expectedUpdatedAt:z.string().min(1).max(100)}).safeParse(body);
+    if(!input.success)return Response.json({error:'Select a saved inquiry before choosing its next step.'},{status:400});
+    const saved=await routeInquiry(getRawDb(),input.data,actor);
+    return saved?Response.json({saved:true}):Response.json({error:'This inquiry changed, was already classified, or its company is unavailable. Refresh the queue before retrying.'},{status:409});
+  }
   if(body&&typeof body==='object'&&'action' in body&&body.action==='handoff') {
     const input=z.object({id:z.string().min(1).max(100),accountId:z.string().min(1).max(100),expectedUpdatedAt:z.string().min(1).max(100)}).safeParse(body);
     if(!input.success)return Response.json({error:'Select a saved inquiry before handing it off.'},{status:400});
