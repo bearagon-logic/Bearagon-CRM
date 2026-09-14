@@ -25,7 +25,7 @@ export function WorkQueue() {
   const items = [...queueItems(inquiries.records, deliveries.records, decisions.records, today),...internal.records].sort((a,b)=>a.priority-b.priority);
   const visible = items.filter(i=>(owner==='All owners'||i.owner===owner)&&(timing==='All dates'||timing==='Overdue'&&!!i.due&&i.due<today||timing==='No date'&&!i.due)).filter(i => filter === "All work" || (filter === "Delivery" ? i.kind.includes("delivery") || i.kind === "Delivery" : i.kind === filter));
   return <AppShell><main className="lane-page work-view">
-    <header className="lane-header"><div><small>YOUR OPERATING PICTURE</small><h1>Work queue</h1><p>Follow up, deliver, and keep the next decision moving.</p></div><Button variant="outline" disabled={loading} onClick={() => sources.forEach(s => s.refresh())}><RefreshCw size={16} />Refresh</Button></header>
+    <header className="lane-header work-queue-header"><div className="work-queue-brand-strip"><img src="/bearagon-work-queue-banner.png" alt="Bearagon Logic" width={2172} height={724} decoding="async"/></div><div className="work-queue-heading"><div><h1>Work queue</h1><p>Follow up, deliver, and keep the next decision moving.</p></div><Button variant="outline" disabled={loading} onClick={() => sources.forEach(s => s.refresh())}><RefreshCw size={16} />Refresh</Button></div></header>
     <WorkNavigation current="/"/><div className="lane-body">
       {notice && <p role="status">{notice}</p>}
 
