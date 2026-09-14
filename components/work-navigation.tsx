@@ -1,7 +1,6 @@
 import Link from 'next/link';
 
 const destinations = [
-  {href:'/',label:'Next actions'},
   {href:'/communications',label:'Inbox'},
   {href:'/approvals',label:'Approvals'},
   {href:'/operations',label:'Operations'},
