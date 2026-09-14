@@ -188,3 +188,10 @@
 .inbox-identity-review article>div:first-child>b { display:block; }
 #inquiry-details { scroll-margin-top:24px; }
 @media(max-width:650px) { #inquiry-details { scroll-margin-top:90px; } }
+
+
+/* Keep company information distinct from the onboarding workspace. */
+.company-view-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:12px;flex-shrink:0}
+.company-record-header .company-view-actions{max-width:100%}
+.company-record-header h1{font-family:inherit;font-weight:700}
+@media(max-width:900px){.company-record-header{align-items:flex-start;flex-wrap:wrap}.company-view-actions{justify-content:flex-start}.company-record-side{grid-template-columns:1fr}}

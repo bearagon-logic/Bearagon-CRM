@@ -21,6 +21,7 @@ test("workspace routes distinguish the directory, delivery, and ongoing service"
     assert.equal(workspaceDestination("/clients/account", tab, true), "/operations");
     assert.equal(workspaceDestination("/clients/account", tab, false), "/companies");
   }
+  assert.equal(workspaceDestination("/onboarding/account"), "/onboarding");
   assert.equal(workspaceDestination("/accounts/onboarding"), "/onboarding");
   assert.equal(workspaceDestination("/automations"), "/operations");
   assert.equal(workspaceDestination("/communications"), "/");
@@ -53,7 +54,7 @@ test("work queue excludes closed work and keeps exact record links and prioritie
   assert.equal(rows[0].id, "inquiry:late");
   assert.equal(rows[0].owner, "Unassigned");
   assert.equal(rows[1].kind, "Blocked delivery");
-  assert.equal(rows[1].href, "/clients/a%2Fb?tab=onboarding");
+  assert.equal(rows[1].href, "/onboarding/a%2Fb?tab=delivery");
   assert.equal(rows.find(row => row.kind === "Approval").href, "/approvals?request=review%20%26%201");
   assert.equal(rows.find(row => row.id === "inquiry:new & one").href, "/communications?inquiry=new%20%26%20one");
   assert.deepEqual(queueItems([], [], [], "2026-09-08"), []);

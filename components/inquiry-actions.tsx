@@ -17,7 +17,7 @@ export function InquiryActions({inquiry,onDone,disabled=false}:{inquiry:InquiryR
       const data=await response.json() as {error?:string};
       if(!response.ok)throw Error(data.error||'Unable to update this inquiry.');
       onDone(action==='lead'?`${inquiry.companyName} marked as a lead. Follow-up remains in the queue.`:`${inquiry.companyName} handed off to the client workflow.`);
-      if(action==='workflow')router.push(`/clients/${encodeURIComponent(inquiry.accountId)}?tab=services`);
+      if(action==='workflow')router.push(`/onboarding/${encodeURIComponent(inquiry.accountId)}?tab=services`);
     } catch(e) {setError(e instanceof Error?e.message:'Unable to update this inquiry.');}
     finally {setBusy(false);}
   }

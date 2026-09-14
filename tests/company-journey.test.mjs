@@ -8,7 +8,7 @@ import {fileURLToPath} from 'node:url';
 const root=fileURLToPath(new URL('..',import.meta.url));
 const vite=await createServer({appType:'custom',configFile:false,root,resolve:{alias:{'@':root}},server:{middlewareMode:true,hmr:false}});
 after(()=>vite.close());
-const {companySection,journeyPhase,phaseSection}=await vite.ssrLoadModule('/lib/company-journey.ts');
+const {companySection,journeyPhase,phaseSection,companyView,companyDestination}=await vite.ssrLoadModule('/lib/company-journey.ts');
 test('old bookmarks resolve into the unified company sections',()=>{assert.equal(companySection('onboarding'),'delivery');assert.equal(companySection('automations'),'services');assert.equal(companySection('complete'),'complete');assert.equal(companySection('unknown'),'overview');});
 test('journey uses saved acceptance and answers, never tab selection as progress',()=>{const c={stage:'Not started',onboardingStatus:'not_started'};assert.equal(journeyPhase(c,null),0);assert.equal(journeyPhase(c,{version:1}),1);assert.equal(journeyPhase(c,{version:2,acceptance:{},setup:{answers:['','','']}}),2);assert.equal(journeyPhase(c,{version:3,acceptance:{},setup:{answers:['a','b','c']}}),3);assert.equal(journeyPhase({stage:'Live',onboardingStatus:'active'},null),3);assert.equal(journeyPhase({stage:'Live',onboardingStatus:'completed'},null),4);});
 test('every stage has one company destination; legacy delivery remains accessible',()=>{assert.deepEqual([0,1,2,3,4].map(phaseSection),['overview','services','delivery','delivery','services']);assert.equal(journeyPhase({stage:'Intake',onboardingStatus:'active'},null),2);});
@@ -49,4 +49,22 @@ test('internal overview has an honest empty state before authorization',async()=
   assert.match(html,/No internal plan has been authorized/);assert.match(html,/Establish internal plan/);
   assert.match(html,/Unassigned/);assert.match(html,/No internal notes recorded/);
   assert.doesNotMatch(html,/Approved for use|onboarding finish|Edit build/);
+});
+
+test('company profiles stay in Companies at every stage; onboarding owns progress',()=>{
+  for(const phase of [0,1,2,3,4]) {
+    assert.equal(companyView('overview',phase,'company'),'company');
+    assert.equal(companyView('activity',phase,'company'),'company');
+    assert.equal(companyView('delivery',phase,'company'),'onboarding');
+    assert.equal(companyView('activity',phase,'onboarding'),'onboarding');
+    assert.equal(companyDestination('a/b','overview',phase,'onboarding'),'/clients/a%2Fb?tab=overview');
+    assert.equal(companyDestination('a/b','delivery',phase),'/onboarding/a%2Fb?tab=delivery');
+  }
+  assert.equal(companyView('services',1,'company'),'onboarding');
+  assert.equal(companyView('services',4,'company'),'operations');
+  assert.equal(companyView('services',4,'onboarding'),'onboarding');
+  assert.equal(companyDestination('a','services',4),'/clients/a?tab=services');
+  assert.equal(companyDestination('a','services',4,'onboarding'),'/onboarding/a?tab=services');
+  assert.equal(companyDestination('a','delivery',4,undefined,true),'/clients/a?tab=delivery');
+  assert.equal(companyDestination('a','activity',2,'onboarding'),'/onboarding/a?tab=activity');
 });

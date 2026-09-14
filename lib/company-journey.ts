@@ -18,3 +18,16 @@ export function journeyPhase(client: {stage:string;onboardingStatus:string;sales
   return 0;
 }
 export function phaseSection(phase:number): CompanySection { return phase === 0 ? 'overview' : phase === 1 || phase === 4 ? 'services' : 'delivery'; }
+
+
+export type CompanyView = 'company' | 'onboarding' | 'operations';
+export function companyView(section: CompanySection, phase: number, workspace: 'company' | 'onboarding'): CompanyView {
+  if (section === 'overview') return 'company';
+  if (workspace === 'onboarding' || section === 'delivery' || section === 'complete') return 'onboarding';
+  if (section === 'services') return phase === 4 ? 'operations' : 'onboarding';
+  return 'company';
+}
+export function companyDestination(id: string, section: CompanySection, phase: number, view?: CompanyView, internal = false) {
+  const onboarding = !internal && section !== 'overview' && (view === 'onboarding' || section === 'delivery' || section === 'complete' || section === 'services' && phase !== 4);
+  return `/${onboarding ? 'onboarding' : 'clients'}/${encodeURIComponent(id)}?tab=${section}`;
+}
