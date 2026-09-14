@@ -53,6 +53,7 @@ export function EmailWalkthrough({accountId,initialData,initialStep,onContext}:{
   const configIssues=run?emailConfigIssues(run.config):[];
   const completed=steps.filter(s=>run?.progress[s.id]?.status==='completed').length;
   const changedFields=config&&run?(Object.keys(config) as (keyof EmailConfig)[]).filter(k=>config[k]!==run.config[k]):[];
+  const orderContext=proposal?{scopeRevision:proposal.scopeRevision,requirements:proposal.draft.services.email?.config||{},sharedSetup:proposal.setup.answers}:undefined;
   const guideUpgrade=!!run&&run.version!==emailGuideVersion&&supportedEmailGuide(run.version);
   const technicalChange=changedFields.some(k=>k!=='owner')||guideUpgrade;
   const needsReset=!!run&&technicalChange&&(Object.keys(run.progress).length>0||order?.status!=='to_build');
@@ -103,7 +104,7 @@ export function EmailWalkthrough({accountId,initialData,initialStep,onContext}:{
     }catch(e){setError((e as Error).message);}finally{setBusy(false);}
   }
   const update=(status=entry.status):EmailUpdate=>({kind:'step',stepId:active,...entry,status});
-  async function copyBrief(){if(!proposal||!run)return;try{await navigator.clipboard.writeText(buildEmailBrief(proposal.company,run.config));setNotice('Build brief copied. Review it in the selected harness before use.');}catch{setNotice('Clipboard unavailable. Expand the build brief below and copy the text.');}}
+  async function copyBrief(){if(!proposal||!run)return;try{await navigator.clipboard.writeText(buildEmailBrief(proposal.company,run.config,orderContext));setNotice('Prompt copied with the saved order and setup details.');}catch{setNotice('Clipboard unavailable. Select and copy the prompt text below.');}}
   if(!data||!config)return <main className="lane-page"><div className="lane-body"><h1>Email setup walkthrough</h1>{error?<div role="alert">{error}<Button onClick={()=>void load()}>Retry loading</Button></div>:<p role="status">Loading saved scope and progress…</p>}</div></main>;
   if(!proposal?.acceptance||!order)return <main className="lane-page"><div className="lane-body"><h1>Email assistance is not ordered yet</h1><p>Establish and accept an Email assistance scope, or authorize Bearagon’s internal plan, before starting this walkthrough.</p><Link className="walkthrough-back" href={`/clients/${accountId}?tab=services`}>Return to service package</Link></div></main>;
   return <main className="email-walkthrough">
@@ -114,20 +115,24 @@ export function EmailWalkthrough({accountId,initialData,initialStep,onContext}:{
           <small className="eyebrow">GUIDED IMPLEMENTATION</small>
           <h1>Email assistance</h1>
         </div>
-        <span className="walkthrough-count">{completed} / {steps.length||6} steps recorded</span>
+        <span className="walkthrough-count">{completed} / {steps.length||3} steps recorded</span>
       </div>
 
-      <progress aria-label="Recorded walkthrough progress" value={completed} max={steps.length||6}/>
+      <progress aria-label="Recorded walkthrough progress" value={completed} max={steps.length||3}/>
     </header>
 
     {readOnly&&<div className="company-notice">{data.archived?'This company is archived. Its walkthrough is retained as read-only history.':data.closed?'This delivery is closed. Its walkthrough is retained as read-only history.':'This walkthrough uses a previous guide version and is read-only. Its instructions and evidence have been preserved.'}</div>}
+    {guideUpgrade&&!readOnly&&active!=='configuration'&&<div className="walkthrough-notice">
+      <b>A shorter email guide is available.</b> Use the order → create and briefly test → schedule and verify. Your saved notes stay available.
+      <Button type="button" variant="outline" size="sm" disabled={busy} onClick={()=>go('configuration')}>Review guide update</Button>
+    </div>}
     {notice&&<p className="walkthrough-notice" role="status">{notice}</p>}
     {dirty&&<p className="walkthrough-notice" role="status">{unsaved.size} unsaved draft(s). You can open other steps and return to these notes. Save before leaving this walkthrough.</p>}
     {error&&<div role="alert" className="company-error">{error} Your fields are still here. <Button variant="outline" disabled={busy} onClick={()=>void load(true)}>Load latest without clearing my fields</Button></div>}
 
     <label className="walkthrough-step-picker">Walkthrough step
       <select value={active} disabled={busy} onChange={e=>go(e.target.value)}>
-        <option value="configuration">Configuration{unsaved.has('configuration')?' · Unsaved draft':''}</option>
+        <option value="configuration">Setup details{unsaved.has('configuration')?' · Unsaved draft':''}</option>
         {steps.map((s,i)=><option key={s.id} value={s.id}>{i+1}. {s.title} · {unsaved.has(s.id)?'Unsaved draft':statusLabel(run?.progress[s.id]?.status)}</option>)}
         {run&&<option value="summary">Walkthrough review</option>}
       </select>
@@ -143,7 +148,7 @@ export function EmailWalkthrough({accountId,initialData,initialStep,onContext}:{
         >
           <span className="rail-btn-icon" aria-hidden="true">{run ? '✓' : '⚙'}</span>
           <span className="rail-btn-content">
-            <span className="rail-btn-title">Configuration</span>
+            <span className="rail-btn-title">Setup details</span>
             <small className="rail-btn-sub">{unsaved.has('configuration')?'Unsaved draft':run?'Saved':'Start here'}</small>
           </span>
         </Button>
@@ -184,7 +189,7 @@ export function EmailWalkthrough({accountId,initialData,initialStep,onContext}:{
 
       <section className="walkthrough-main">
         <div className="walkthrough-section-title">
-          <h2 ref={heading} tabIndex={-1}>{active==='configuration'?'Confirm the implementation route':active==='summary'?'Review recorded walkthrough':current?.title}</h2>
+          <h2 ref={heading} tabIndex={-1}>{active==='configuration'?'Setup details for this order':active==='summary'?'Review recorded walkthrough':current?.title}</h2>
           <div className="walkthrough-record-status">
             <span>{currentDirty?'Unsaved edits':`Saved record v${proposal.version}`}</span>
             {currentDirty&&<Button variant="outline" size="sm" disabled={busy} onClick={discardCurrent}>Discard this draft</Button>}
@@ -192,8 +197,8 @@ export function EmailWalkthrough({accountId,initialData,initialStep,onContext}:{
         </div>
 
         {active==='configuration'?<form onSubmit={e=>{e.preventDefault();void save({kind:'configure',config,confirmReset:revalidate},true);}}>
-          <p className="walkthrough-intro-text">Scope information is prefilled where available. Complete the remaining details, or save and come back. These answers do not change accepted commercial scope.</p>
-          {guideUpgrade&&<p className="walkthrough-prerequisites">A newer guide includes the Codex delivery route. Your saved instructions remain unchanged until you save configuration; that save upgrades the guide and requires revalidation of recorded work.</p>}
+          <p className="walkthrough-intro-text">The order supplies the agreed requirements. Fill in any missing delivery details here; Ops uses the saved values in your copyable prompt.</p>
+          {guideUpgrade&&<p className="walkthrough-prerequisites">Saving switches to the three-step guide: use the order, create and briefly test, then schedule and verify. Earlier notes and evidence stay available; completed work needs revalidation against the new steps.</p>}
           <fieldset disabled={busy||readOnly}>
             <div className="walkthrough-fields">
               <label>Email provider
@@ -225,14 +230,10 @@ export function EmailWalkthrough({accountId,initialData,initialStep,onContext}:{
               <label className="walkthrough-wide">Mailbox names / users / expected volume
                 <Textarea value={config.mailboxes} maxLength={2000} onChange={e=>setConfig({...config,mailboxes:e.target.value})}/>
               </label>
-              <label className="walkthrough-wide">Harness, connector and setup approach
-                <Input value={config.harness} maxLength={2000} placeholder="Codex — add the approved mailbox connection details" onChange={e=>setConfig({...config,harness:e.target.value})}/>
-                <small>Codex is Bearagon’s preferred harness. Keep the name at the start (for example, Codex — Gmail) to use its guided route. Saved alternatives are preserved.</small>
+              <label className="walkthrough-wide">AI tool and mailbox connection
+                <Input value={config.harness} maxLength={2000} placeholder="Codex — Gmail, for example" onChange={e=>setConfig({...config,harness:e.target.value})}/>
+                <small>Use the tool selected for this company. Saved choices are preserved.</small>
               </label>
-              {usesCodex(config)&&<div className="walkthrough-success walkthrough-wide">
-                <b>Codex-led delivery</b>
-                <p>The guide covers the company project, mailbox identity and plugin checks, a copyable Codex task prompt, synthetic tests, and a separately verified recurring runtime. It does not assume a shared mailbox or unattended schedule works merely because a plugin is installed.</p>
-              </div>}
               <label className="walkthrough-wide">Human reply reviewer & fallback contact
                 <Input value={config.reviewer} maxLength={2000} onChange={e=>setConfig({...config,reviewer:e.target.value})}/>
               </label>
@@ -240,7 +241,7 @@ export function EmailWalkthrough({accountId,initialData,initialStep,onContext}:{
                 <Textarea rows={5} value={config.rules} maxLength={2000} onChange={e=>setConfig({...config,rules:e.target.value})}/>
               </label>
             </div>
-            <p className="company-help">Mixed ecosystems: this pilot tracks one provider route per email work order. Use a reviewed custom build for mixed-provider installations. No credentials or private message bodies.</p>
+            <details className="walkthrough-reference"><summary>Connection help</summary><p>This guide tracks one email provider per order. For a mixed-provider setup or an unsupported shared mailbox, ask the delivery owner for the appropriate connection. Keep credentials in the connection settings, not these fields.</p></details>
             {needsReset&&<div className="walkthrough-prerequisites">
               <b>Review this configuration change</b>
               <p>Affected walkthrough steps return to In progress; their notes remain. If build evidence is already recorded, this email work order returns to To build and its use approval is withdrawn. Previous build/test references remain in revision history. Other automations are unchanged. No running harness is stopped.</p>
@@ -263,22 +264,37 @@ export function EmailWalkthrough({accountId,initialData,initialStep,onContext}:{
         </form>:current&&<>
           {(prerequisites.length>0||configIssues.length>0)&&<div className="walkthrough-prerequisites">
             <b>You can save notes now. Completion is waiting on:</b>
-            {configIssues.length>0&&<p><Button variant="outline" size="sm" onClick={()=>go('configuration')}>Complete configuration</Button> {configIssues.join(' ')}</p>}
+            {configIssues.length>0&&<p><Button variant="outline" size="sm" onClick={()=>go('configuration')}>Complete setup details</Button> {configIssues.join(' ')}</p>}
             {prerequisites.map(s=><Button key={s.id} variant="outline" size="sm" onClick={()=>go(s.id)}>{s.title}</Button>)}
           </div>}
 
           <div className="walkthrough-step-context">
             <div className="walkthrough-step-why">
               <span className="context-label">OBJECTIVE</span>
-              <p>{stepObjectives[current.id] || "Complete the steps below and record the observed result."}</p>
+              <p>{(run?.version===emailGuideVersion?current.why:stepObjectives[current.id]) || current.why}</p>
             </div>
             <div className="walkthrough-step-instructions">
-              <span className="context-label">EXECUTION STEPS</span>
+              <span className="context-label">WHAT TO DO</span>
               <ol className="walkthrough-instructions">
                 {current.instructions.map((line,i)=><li key={i}>{line}</li>)}
               </ol>
               {current.links?.map(l=><p key={l.url}><a className="walkthrough-ext-link" href={l.url} target="_blank" rel="noreferrer">{l.label} ↗</a></p>)}
             </div>
+            {current.id==='authority'&&run?.version===emailGuideVersion&&<div className="walkthrough-order-reference">
+              <b>Your saved order</b>
+              <p>{proposal.company} · Order revision {proposal.scopeRevision}</p>
+              <p><b>Mailbox:</b> {run.config.mailboxes||'Add in Setup details'}<br/><b>Reviewer:</b> {run.config.reviewer||'Add in Setup details'}<br/><b>AI tool:</b> {run.config.harness}</p>
+              <details><summary>Email requirements and shared setup</summary>
+                {Object.entries(orderContext?.requirements||{}).map(([key,value])=><p key={key}><b>{key}:</b> {value}</p>)}
+                {orderContext?.sharedSetup.filter(Boolean).map((answer,i)=><p key={i}>{answer}</p>)}
+              </details>
+            </div>}
+            {current.id==='build'&&run&&<div className="walkthrough-prompt">
+              <div className="walkthrough-prompt-heading"><b>Your build prompt</b><Button type="button" variant="outline" size="sm" onClick={()=>void copyBrief()}>Copy prompt</Button></div>
+              <p>Includes the saved order and setup details. Paste into the company’s {run.config.harness||'AI'} task.</p>
+              <pre tabIndex={0} aria-label="Email automation prompt" className="walkthrough-code-block">{buildEmailBrief(proposal.company,run.config,orderContext)}</pre>
+            </div>}
+            {!!current.help?.length&&<details className="walkthrough-reference"><summary>If you need help</summary><ul>{current.help.map((line,i)=><li key={i}>{line}</li>)}</ul></details>}
             <div className="walkthrough-success">
               <span className="context-label">WHAT TO RECORD</span>
               <p>{current.success}</p>
@@ -296,10 +312,10 @@ export function EmailWalkthrough({accountId,initialData,initialStep,onContext}:{
                 </select>
               </label>
               <label>Work notes
-                <Textarea rows={5} maxLength={4000} value={entry.notes} placeholder="Record execution details, harness output, settings applied, and notes for teammates..." onChange={e=>setEntry({...entry,notes:e.target.value})}/>
+                <Textarea rows={2} maxLength={4000} value={entry.notes} placeholder="A short note on what you did or what needs attention..." onChange={e=>setEntry({...entry,notes:e.target.value})}/>
               </label>
               <label>Observed result / evidence reference
-                <Textarea rows={4} maxLength={4000} value={entry.evidence} placeholder="e.g. Test message ID, run log reference, or document link..." onChange={e=>setEntry({...entry,evidence:e.target.value})}/>
+                <Textarea rows={2} maxLength={4000} value={entry.evidence} placeholder="e.g. Test message ID, run log reference, or document link..." onChange={e=>setEntry({...entry,evidence:e.target.value})}/>
                 <small>Use a restricted document, workflow ID or test result reference. Do not paste secrets or customer messages.</small>
               </label>
               {entry.status==='blocked'&&<label>Blocker & next action
@@ -357,7 +373,7 @@ export function EmailWalkthrough({accountId,initialData,initialStep,onContext}:{
 
         <details className="walkthrough-reference"><summary>Owner & guide details</summary>
           <p>Owner: {run?.config.owner||'Not assigned'}<br/>Guide: {run?.version||emailGuideVersion}</p>
-          <small>Guide steward: Bearagon delivery team<br/>Provider references checked September 11, 2026. Field validation by the team is still needed.</small>
+          <small>Guide steward: Bearagon delivery team<br/>The guide records your work; the connected AI tool runs the automation.</small>
         </details>
 
         <details className="walkthrough-reference">
@@ -367,11 +383,11 @@ export function EmailWalkthrough({accountId,initialData,initialStep,onContext}:{
           {proposal.setup.answers.map((a,i)=><p key={i}>{a||'Shared setup answer not yet recorded'}</p>)}
         </details>
 
-        {run&&<details className="walkthrough-reference">
+        {run&&current?.id!=='build'&&<details className="walkthrough-reference">
           <summary>{usesCodex(run.config)?'Copyable Codex task prompt':'Copyable build brief'}</summary>
-          <p>Generated from saved configuration. Instructions for a builder—not executable code. Paste into the authorized company project; copying does not start a task.</p>
+          <p>Includes the saved order and setup details. Paste into the company’s AI task.</p>
           <Button variant="outline" size="sm" onClick={()=>void copyBrief()}>{usesCodex(run.config)?'Copy Codex task prompt':'Copy build brief'}</Button>
-          <pre className="walkthrough-code-block">{buildEmailBrief(proposal.company,run.config)}</pre>
+          <pre className="walkthrough-code-block">{buildEmailBrief(proposal.company,run.config,orderContext)}</pre>
         </details>}
 
         {run&&Object.keys(run.progress).some(id=>!steps.some(s=>s.id===id))&&<details className="walkthrough-reference">

@@ -58,30 +58,43 @@ function accepted(internal=false){let s=change(complete(internal),{action:'appro
 function configuredEmail(internal=false){let s=accepted(internal);return change(s,{action:'emailPlaybook',key:'email',emailUpdate:{kind:'configure',config:{...emailDefaults(s.draft),mailboxType:'individual',harness:'Reviewed test harness / connector',owner:'Emily',reviewer:'Company reviewer',rules:'Draft only; excluded topics escalate'}}});}
 function emailStep(s,id,status='completed',extra={}){return change(s,{action:'emailPlaybook',key:'email',emailUpdate:{kind:'step',stepId:id,status,notes:'A paragraph of implementation notes to preserve.',evidence:'Restricted test evidence reference',blocker:'',...extra}});}
 
-test('Codex is the new default with provider-aware preflight and a no-send task prompt',()=>{
+test('email guide is a concise order, build/test and schedule route with a saved-order prompt',()=>{
   const c={...emailDefaults(accepted().draft),mailboxType:'individual',harness:'Codex — Gmail'};
   assert.equal(emailDefaults(accepted().draft).harness,'Codex');
-  const steps=emailSteps(c);assert.match(steps.find(s=>s.id==='build').title,/Codex/);assert.match(steps.find(s=>s.id==='connect-google').instructions[0],/Plugins tab/);
-  assert.match(emailSteps({...c,provider:'microsoft'}).find(s=>s.id==='connect-microsoft').instructions[0],/If the plugin or required action is unavailable/);
-  const prompt=buildEmailBrief('Test company',c);assert.match(prompt,/CODEX TASK/);assert.match(prompt,/Do not send mail/);assert.match(prompt,/capability and identity preflight/);
-  assert.doesNotMatch(buildEmailBrief('Test company',{...c,harness:'Another approved harness'}),/CODEX TASK/);
+  assert.deepEqual(emailSteps(c).map(s=>s.id),['authority','build','handoff']);
+  assert.match(emailSteps({...c,provider:'microsoft'}).find(s=>s.id==='build').instructions[0],/Outlook/);
+  const prompt=buildEmailBrief('Test company',c,{scopeRevision:7,requirements:{tone:'Warm and concise',schedule:'Every weekday at 9 AM Mountain'},sharedSetup:['Use the support mailbox']});
+  for(const phrase of ['Review–Bulk Delete','Research','Marketing','Needs attention or action item','Leads','preserve human drafts','correct thread','Do not send messages or delete mail','revision 7','Warm and concise','Every weekday at 9 AM Mountain','Use the support mailbox'])assert.ok(prompt.includes(phrase),phrase);
+  assert.match(prompt,/Leave recurring execution off/);
+  assert.match(buildEmailBrief('Test company',{...c,mode:'auto'}),/initial build\/test draft-only/);
 });
 
-test('existing guide snapshots stay editable without silent upgrade; explicit upgrade preserves notes and revalidates',()=>{
-  let s=configuredEmail();s=emailStep(s,'authority');s.orders[0].emailRun.version='email-2026-09-11.1';
-  const snapshot=structuredClone(s.orders[0].emailRun.steps);
-  s=emailStep(s,'connect-google','in_progress');assert.equal(s.orders[0].emailRun.version,'email-2026-09-11.1');assert.deepEqual(s.orders[0].emailRun.steps,snapshot);
+for(const version of ['email-2026-09-11.1','email-2026-09-11.2'])test(`saved ${version} snapshots remain editable; explicit upgrade retains retired evidence`,()=>{
+  let s=configuredEmail();
+  const run=s.orders[0].emailRun;
+  run.version=version;
+  run.steps=[run.steps[0],{...run.steps[1],id:'connect-google',title:'Previous connection step'},run.steps[2]];
+  s=emailStep(s,'authority');s=emailStep(s,'connect-google','in_progress');
+  const before=structuredClone(s), snapshot=structuredClone(s.orders[0].emailRun.steps);
+  s=emailStep(s,'connect-google','blocked',{blocker:'Keep this connection issue'});
+  assert.equal(s.orders[0].emailRun.version,version);assert.deepEqual(s.orders[0].emailRun.steps,snapshot);
   const config={...s.orders[0].emailRun.config,harness:'Codex'};
   assert.throws(()=>change(s,{action:'emailPlaybook',key:'email',emailUpdate:{kind:'configure',config}}),/Confirm revalidation/);
   s=change(s,{action:'emailPlaybook',key:'email',emailUpdate:{kind:'configure',config,confirmReset:true}});
-  assert.equal(s.orders[0].emailRun.version,emailGuideVersion);assert.equal(s.orders[0].emailRun.progress.authority.status,'in_progress');assert.match(s.orders[0].emailRun.progress.authority.notes,/paragraph/);
+  const upgraded=s.orders[0].emailRun;
+  assert.equal(upgraded.version,emailGuideVersion);assert.equal(upgraded.progress.authority.status,'in_progress');
+  assert.equal(upgraded.progress['connect-google'].notes,before.orders[0].emailRun.progress['connect-google'].notes);
+  assert.equal(upgraded.progress['connect-google'].evidence,before.orders[0].emailRun.progress['connect-google'].evidence);
+  assert.equal(upgraded.progress['connect-google'].blocker,'Keep this connection issue');
+  assert.equal(upgraded.progress.build,undefined);assert.ok(!upgraded.steps.some(s=>s.id==='connect-google'));
+  assert.deepEqual(s.acceptance,before.acceptance);assert.deepEqual(s.orders[1],before.orders[1]);
 });
 
 test('email guide branches by provider and mailbox type, defaults safely and strips unknown input',()=>{
   let s=configuredEmail();let r=s.orders[0].emailRun;
-  assert.equal(r.version,emailGuideVersion);assert.equal(r.config.provider,'google');assert.equal(r.config.mode,'draft');assert.ok(r.steps.some(s=>s.id==='connect-google'));assert.ok(r.steps.some(s=>s.id==='draft-review'));assert.equal(s.orders[0].status,'to_build');
+  assert.equal(r.version,emailGuideVersion);assert.equal(r.config.provider,'google');assert.equal(r.config.mode,'draft');assert.ok(r.steps.some(s=>s.id==='build'));assert.ok(r.steps.some(s=>s.id==='handoff'));assert.equal(s.orders[0].status,'to_build');
   s=change(s,{action:'emailPlaybook',key:'email',emailUpdate:{kind:'configure',config:{...r.config,provider:'microsoft',mailboxType:'shared',untrusted:'must not persist'}}});r=s.orders[0].emailRun;
-  assert.ok(r.steps.some(s=>s.id==='connect-microsoft'));assert.equal(r.config.untrusted,undefined);assert.match(r.steps.find(s=>s.id==='connect-microsoft').instructions.join(' '),/shared mailbox/);
+  assert.ok(r.steps.some(s=>s.id==='build'));assert.equal(r.config.untrusted,undefined);assert.match(r.steps.find(s=>s.id==='build').instructions.join(' '),/Microsoft 365/);assert.equal(r.config.mailboxType,'shared');
   assert.deepEqual(emailSteps({...r.config,provider:''}),[]);
   assert.throws(()=>change(s,{action:'emailPlaybook',key:'email',emailUpdate:{kind:'configure',config:{...r.config,mode:'auto'}}}),/not in the accepted/);
   assert.throws(()=>change(s,{action:'emailPlaybook',key:'brief',emailUpdate:{kind:'configure',config:r.config}}),/scoped Email/);
@@ -90,8 +103,8 @@ test('email guide branches by provider and mailbox type, defaults safely and str
 
 test('email walkthrough accepts partial work, gates completion early and never advances delivery',()=>{
   let s=configuredEmail();const original=structuredClone(s);const ids=s.orders[0].emailRun.steps.map(s=>s.id);
-  assert.throws(()=>emailStep(s,'test'),/Complete.*first/);
-  s=emailStep(s,'test','in_progress',{evidence:''});assert.equal(s.orders[0].emailRun.progress.test.notes,'A paragraph of implementation notes to preserve.');
+  assert.throws(()=>emailStep(s,'handoff'),/Complete.*first/);
+  s=emailStep(s,'handoff','in_progress',{evidence:''});assert.equal(s.orders[0].emailRun.progress.handoff.notes,'A paragraph of implementation notes to preserve.');
   assert.throws(()=>emailStep(s,ids[0],'completed',{evidence:''}),/observed result/);
   assert.throws(()=>emailStep(s,ids[0],'blocked'),/blocker/);
   assert.throws(()=>emailStep(s,'invented'),/existing step/);
@@ -99,27 +112,27 @@ test('email walkthrough accepts partial work, gates completion early and never a
   for(const id of ids)s=emailStep(s,id);
   assert.ok(ids.every(id=>s.orders[0].emailRun.progress[id].status==='completed'));
   assert.equal(s.orders[0].status,'to_build');assert.equal(s.orders[0].buildRef,'');assert.equal(s.orders[0].testRef,'');assert.deepEqual(s.acceptance,original.acceptance);assert.deepEqual(s.draft,original.draft);assert.deepEqual(s.orders[1],original.orders[1]);
-  s=emailStep(s,ids[0],'in_progress');assert.equal(s.orders[0].emailRun.progress.test.status,'in_progress');assert.equal(s.orders[0].emailRun.progress.test.evidence,'Restricted test evidence reference');
+  s=emailStep(s,ids[0],'in_progress');assert.equal(s.orders[0].emailRun.progress.handoff.status,'in_progress');assert.equal(s.orders[0].emailRun.progress.handoff.evidence,'Restricted test evidence reference');
 });
 
 test('email guide revision/reset preserves notes, isolates automation and requires explicit confirmation',()=>{
-  let s=configuredEmail(true);s=change(s,{action:'setup',answers:['Outcome','Systems','Authority']});s=emailStep(s,'authority');s=emailStep(s,'connect-google');
+  let s=configuredEmail(true);s=change(s,{action:'setup',answers:['Outcome','Systems','Authority']});s=emailStep(s,'authority');s=emailStep(s,'build');
   s=change(s,{action:'order',key:'email',status:'tested',buildRef:'Actual build',testRef:'Actual tests'});s=change(s,{action:'releaseInternal',key:'email',review:'Reviewed',confirmed:true});
   const before=structuredClone(s),r=s.orders[0].emailRun;
   s=change(s,{action:'emailPlaybook',key:'email',emailUpdate:{kind:'configure',config:{...r.config,owner:'Derek'}}});assert.ok(s.orders[0].internalRelease);assert.equal(s.orders[0].emailRun.progress.authority.status,'completed');
   assert.throws(()=>change(s,{action:'emailPlaybook',key:'email',emailUpdate:{kind:'configure',config:{...r.config,provider:'microsoft'}}}),/Confirm/);
   s=change(s,{action:'emailPlaybook',key:'email',emailUpdate:{kind:'configure',config:{...r.config,provider:'microsoft'},confirmReset:true}});
   assert.equal(s.orders[0].status,'to_build');assert.equal(s.orders[0].internalRelease,null);assert.equal(s.orders[0].emailRun.progress.authority.status,'in_progress');assert.match(s.orders[0].emailRun.progress.authority.notes,/paragraph/);assert.deepEqual(s.orders[1],before.orders[1]);
-  s=change(s,{action:'emailPlaybook',key:'email',emailUpdate:{kind:'configure',config:r.config,confirmReset:true}});assert.equal(s.orders[0].emailRun.progress['connect-google'].status,'in_progress');
+  s=change(s,{action:'emailPlaybook',key:'email',emailUpdate:{kind:'configure',config:r.config,confirmReset:true}});assert.equal(s.orders[0].emailRun.progress['build'].status,'in_progress');
   s=emailStep(s,'authority');s=change(s,{action:'setup',answers:['Changed','Systems','Authority'],confirmReset:true});assert.equal(s.orders[0].emailRun.progress.authority.status,'in_progress');assert.match(s.orders[0].emailRun.progress.authority.notes,/paragraph/);
   s.orders[0].emailRun.version='prior-version';assert.throws(()=>emailStep(s,'authority'),/read-only/);
 });
 
 test('email walkthrough UI prefills saved notes and exposes prerequisites before editable fields',()=>{
-  let s=configuredEmail();s=emailStep(s,'test','blocked',{blocker:'Waiting for test access',notes:'Keep my long saved paragraph.'});
-  const markup=renderToStaticMarkup(React.createElement(EmailWalkthrough,{accountId:'account-one',initialData:{proposal:s},initialStep:'test'}));
+  let s=configuredEmail();s=emailStep(s,'handoff','blocked',{blocker:'Waiting for test access',notes:'Keep my long saved paragraph.'});
+  const markup=renderToStaticMarkup(React.createElement(EmailWalkthrough,{accountId:'account-one',initialData:{proposal:s},initialStep:'handoff'}));
   assert.ok(markup.includes('Keep my long saved paragraph.'));assert.ok(markup.includes('Waiting for test access'));assert.ok(markup.indexOf('Completion is waiting on:')<markup.indexOf('Work notes'));assert.match(markup,/value="completed" disabled=""/);assert.ok(markup.includes('Save progress'));
-  const closed=renderToStaticMarkup(React.createElement(EmailWalkthrough,{accountId:'account-one',initialData:{proposal:s,closed:true},initialStep:'test'}));assert.match(closed,/fieldset disabled=""/);assert.match(closed,/read-only history/);
+  const closed=renderToStaticMarkup(React.createElement(EmailWalkthrough,{accountId:'account-one',initialData:{proposal:s,closed:true},initialStep:'handoff'}));assert.match(closed,/fieldset disabled=""/);assert.match(closed,/read-only history/);
 });
 
 test('email progress persists with CAS/history, leaves other task timestamps alone, and closed history stays protected',async()=>{
@@ -283,4 +296,11 @@ test('scope save rejects malformed default-price provenance',()=>{
   for(const defaultPricing of [null,[],{monthly:'yes'},{setup:1},{unknown:true}]){
     assert.throws(()=>change(s,{action:'save',draft:{...s.draft,defaultPricing}}),/invalid or oversized/);
   }
+});
+
+test('email build step exposes the prompt with order data and keeps optional help collapsed',()=>{
+  const s=configuredEmail();s.draft.services.email.config.detail='Order-specific email requirement';
+  const html=renderToStaticMarkup(React.createElement(EmailWalkthrough,{accountId:'account-one',initialData:{proposal:s},initialStep:'build'}));
+  assert.match(html,/Copy prompt/);assert.match(html,/Order-specific email requirement/);assert.match(html,/aria-label="Email automation prompt"/);
+  assert.match(html,/<details class="walkthrough-reference"><summary>If you need help/);
 });

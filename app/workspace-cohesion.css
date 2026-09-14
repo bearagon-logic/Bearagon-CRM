@@ -141,3 +141,9 @@
 .internal-discard-confirm p { margin:6px 0 12px; }
 .internal-discard-confirm > div { display:flex; flex-wrap:wrap; gap:12px; }
 .internal-automation-dialog { max-height:calc(100dvh - 32px); overflow-y:auto; }
+
+/* Keep the email build prompt beside the instructions, with optional detail collapsed. */
+.email-walkthrough .walkthrough-prompt, .email-walkthrough .walkthrough-order-reference { padding:16px; border:1px solid #d7e3ed; border-radius:12px; min-width:0; }
+.email-walkthrough .walkthrough-prompt-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.email-walkthrough .walkthrough-prompt .walkthrough-code-block { max-height:260px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; margin-bottom:0; font-family:inherit; background:#f3f8fc; color:#17324d; border-color:#d7e3ed; }
+.email-walkthrough .walkthrough-prompt p, .email-walkthrough .walkthrough-order-reference p { margin:10px 0; }
