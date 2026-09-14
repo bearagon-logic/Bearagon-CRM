@@ -18,6 +18,8 @@ if [[ ! -x "${vinext}" ]]; then
   exit 69
 fi
 
+node "${SITES_PROJECT_ROOT}/scripts/generate-appearance-css.mjs"
+
 echo "Running bounded vinext build..."
 timeout \
   --signal=TERM \

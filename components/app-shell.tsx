@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AppearanceControls, PlaidScene } from "./appearance-controls";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import {
@@ -81,9 +82,10 @@ export function AppShell({ children, activeSection }: { children: React.ReactNod
           <div className="ops-nav-group"><small>WORKSPACE</small>{workspaceItems.map((item) => <NavLink key={item.label} item={item} pathname={activePath} close={() => setMenuOpen(false)} />)}</div>
           <div className="ops-nav-group ops-nav-system"><small>RESOURCES & SETTINGS</small>{systemItems.map((item) => <NavLink key={item.label} item={item} pathname={activePath} close={() => setMenuOpen(false)} />)}</div>
         </nav>
+        <AppearanceControls/>
         <div className="ops-sidebar-footer"><span className="ops-operator-avatar">BO</span><span><b>Bearagon operator</b><small>Authenticated access</small></span></div>
       </aside>
-      <div className="ops-app-main">{children}</div>
+      <div className="ops-app-main"><PlaidScene/>{children}</div>
     </div>
   );
 }

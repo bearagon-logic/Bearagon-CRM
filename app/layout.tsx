@@ -1,3 +1,4 @@
+import { appearanceBootstrap } from "@/lib/appearance";
 import type { Metadata } from "next";
 import "./globals.css";
 import "./ops-ui.css";
@@ -9,6 +10,8 @@ import "./interaction-theme.css";
 import "./workflow-refinement.css";
 import "./email-walkthrough.css";
 import "./workspace-cohesion.css";
+import "./appearance-legacy.css";
+import "./appearance.css";
 
 export const metadata: Metadata = {
   title: {
@@ -23,5 +26,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return <html lang="en"><body>{children}</body></html>;
+  return <html lang="en" suppressHydrationWarning><head><script dangerouslySetInnerHTML={{__html:appearanceBootstrap}}/></head><body>{children}</body></html>;
 }
