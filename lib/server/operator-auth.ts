@@ -12,7 +12,7 @@ const localDevelopmentOperator: OperatorIdentity | null = import.meta.env.DEV
     }
   : null;
 
-function configuredOperatorEmails() {
+export function configuredOperatorEmails() {
   const value = (env as unknown as { BEARAGON_OPERATOR_EMAILS?: string })
     .BEARAGON_OPERATOR_EMAILS;
   return new Set(

@@ -129,6 +129,7 @@ async function loadAccountDetail(id: string) {
     client: {
       id: account.id,
       companyName: account.name,
+      accountStatus: account.status,
       contactName: primaryContact?.displayName ?? "",
       email: primaryContact?.email ?? "",
       phone: primaryContact?.phone ?? "",
@@ -209,6 +210,7 @@ export async function PATCH(
     if (!account) {
       return Response.json({ error: "Account not found." }, { status: 404 });
     }
+    if(account.status==="archived")return Response.json({error:"Archived companies cannot be changed."},{status:409});
     const now = new Date().toISOString();
 
     if (body.startOnboarding === true) {

@@ -16,6 +16,7 @@ const migrationFiles = [
   "0009_nappy_black_crow.sql",
   "0010_past_lord_tyger.sql",
   "0011_striped_justice.sql",
+  "0012_dear_micromax.sql",
 ];
 
 async function freshDatabase() {

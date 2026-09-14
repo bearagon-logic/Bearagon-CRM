@@ -450,6 +450,10 @@ export const decisionRequests = sqliteTable(
     riskLevel: text("risk_level").notNull().default("supervised"),
     status: text("status").notNull().default("pending"),
     requestedBy: text("requested_by").notNull().default("Cipher"),
+    requesterId: text("requester_id").notNull().default(""),
+    requesterEmail: text("requester_email").notNull().default(""),
+    reviewerEmail: text("reviewer_email").notNull().default(""),
+    removalKind: text("removal_kind").notNull().default(""),
     decidedBy: text("decided_by").notNull().default(""),
     decidedAt: text("decided_at").notNull().default(""),
     decisionNonce: text("decision_nonce").notNull().default(""),
@@ -457,6 +461,7 @@ export const decisionRequests = sqliteTable(
     updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },
   (table) => [
+    uniqueIndex("uq_pending_company_removal").on(table.accountId).where(sql`${table.type} = 'Company removal' and ${table.status} = 'pending'`),
     index("idx_decision_requests_account_status").on(
       table.accountId,
       table.status,

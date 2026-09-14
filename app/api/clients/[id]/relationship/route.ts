@@ -24,6 +24,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (!parsed.success) return Response.json({ error: parsed.error.issues[0].message }, { status: 400 });
   const { id } = await context.params, db = getDb(), existing = await load(id);
   if (!existing.account) return Response.json({ error: "Account not found." }, { status: 404 });
+  if(existing.account.status==="archived")return Response.json({error:"Archived companies cannot be changed."},{status:409});
   if (existing.account.organizationKind === "internal") return Response.json({ error: "Internal operations are excluded from the sales pipeline." }, { status: 400 });
   const { marketingStatus, marketingEvidence, ...values } = parsed.data;
   const now = new Date().toISOString();

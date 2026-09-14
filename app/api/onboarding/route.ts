@@ -42,6 +42,7 @@ export async function GET(request: Request) {
         .innerJoin(accounts, eq(engagements.accountId, accounts.id))
         .where(
           and(
+            eq(accounts.status, "active"),
             eq(engagements.kind, "onboarding"),
             inArray(engagements.status, activeStatuses),
           ),

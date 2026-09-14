@@ -30,6 +30,7 @@ async function save(request: Request, { params }: Context) {
   const [account] = await db.select().from(accounts).where(eq(accounts.id, accountId)).limit(1);
   if (!account) return Response.json({ error: "Account not found." }, { status: 404 });
   const id = request.method === "PATCH" ? String(body.id ?? "") : newId("service");
+  if(account.status==="archived")return Response.json({error:"Archived companies cannot be changed."},{status:409});
   const [existing] = await db.select().from(accountServices).where(and(eq(accountServices.id, id), eq(accountServices.accountId, accountId))).limit(1);
   if (request.method === "PATCH" && !existing) return Response.json({ error: "Service not found for this account." }, { status: 404 });
   const { installationIds, ...fields } = parsed.data;

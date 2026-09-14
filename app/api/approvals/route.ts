@@ -1,5 +1,6 @@
+import {canReviewRemoval,decideCompanyRemoval,companyRemovalType} from '@/lib/server/company-removal';
 import { and, desc, eq, sql } from "drizzle-orm";
-import { getDb } from "../../../db";
+import { getDb, getRawDb } from "../../../db";
 import {
   accounts,
   automationInstallations,
@@ -28,7 +29,7 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const requestedStatus = url.searchParams.get("status")?.toLowerCase();
     const accountId = url.searchParams.get("clientId")?.trim();
-    const conditions = [];
+    const conditions = [sql`(${accounts.status} <> 'archived' OR ${decisionRequests.type} = 'Company removal' OR ${decisionRequests.status} <> 'pending')`];
     if (requestedStatus && allowedStatuses.has(requestedStatus)) {
       conditions.push(eq(decisionRequests.status, requestedStatus));
     }
@@ -44,6 +45,10 @@ export async function GET(request: Request) {
         summary: decisionRequests.summary,
         riskLevel: decisionRequests.riskLevel,
         status: decisionRequests.status,
+        requesterId: decisionRequests.requesterId,
+        requesterEmail: decisionRequests.requesterEmail,
+        reviewerEmail: decisionRequests.reviewerEmail,
+        removalKind: decisionRequests.removalKind,
         requestedBy: decisionRequests.requestedBy,
         decidedBy: decisionRequests.decidedBy,
         decidedAt: decisionRequests.decidedAt,
@@ -58,6 +63,8 @@ export async function GET(request: Request) {
       {
         approvals: rows.map((row) => ({
           ...row,
+          canDecide: row.type!==companyRemovalType||canReviewRemoval({requester_id:row.requesterId,requester_email:row.requesterEmail,reviewer_email:row.reviewerEmail},actor),
+          assignedToMe: row.reviewerEmail.toLowerCase()===actor.email.toLowerCase(),
           riskLevel: displayLabel(row.riskLevel),
           status: displayLabel(row.status),
         })),
@@ -257,6 +264,12 @@ export async function PATCH(request: Request) {
     if (!existing) {
       return Response.json({ error: "Approval not found." }, { status: 404 });
     }
+    if(existing.type===companyRemovalType){
+      const result=await decideCompanyRemoval(getRawDb(),id,status as 'approved'|'rejected',actor);
+      return Response.json(result,{status:result.status});
+    }
+    const [targetAccount]=await db.select({status:accounts.status}).from(accounts).where(eq(accounts.id,existing.accountId)).limit(1);
+    if(!targetAccount||targetAccount.status==='archived')return Response.json({error:'This company is archived. Its pending workflow decisions cannot be changed.'},{status:409});
     if (existing.status !== "pending") {
       return Response.json(
         { error: "This request has already been decided." },

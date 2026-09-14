@@ -59,7 +59,7 @@ async function loadAutomations(accountId?: string) {
       eq(automationInstallations.blueprintId, automationBlueprints.id),
     )
     .where(
-      accountId ? eq(automationInstallations.accountId, accountId) : undefined,
+      accountId ? eq(automationInstallations.accountId, accountId) : eq(accounts.status, "active"),
     )
     .orderBy(asc(accounts.name), asc(automationBlueprints.name));
 

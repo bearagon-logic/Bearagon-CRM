@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   const accountId = new URL(request.url).searchParams.get("accountId");
   const rows = await getDb().select({ inquiry: inquiries, companyName: accounts.name, contactName: contacts.displayName, email: contacts.email, phone: contacts.phone })
     .from(inquiries).innerJoin(accounts, eq(accounts.id, inquiries.accountId)).innerJoin(contacts, eq(contacts.id, inquiries.contactId))
-    .where(accountId ? eq(inquiries.accountId, accountId) : undefined).orderBy(desc(inquiries.createdAt));
+    .where(accountId ? eq(inquiries.accountId, accountId) : sql`(${accounts.status}='active' OR ${inquiries.status}='closed')`).orderBy(desc(inquiries.createdAt));
   return Response.json({ inquiries: rows.map(({ inquiry, ...context }) => ({ ...inquiry, ...context })) }, { headers: { "cache-control": "no-store" } });
 }
 
