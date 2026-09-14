@@ -2,7 +2,7 @@
 
 Both tracks are by **Kevin MacLeod (incompetech.com)** and licensed under **Creative Commons Attribution 4.0 International**: https://creativecommons.org/licenses/by/4.0/
 
-The recordings are unchanged. Side names are Bearagon's cassette labels, not alternate track titles. Credit and the source/license links appear in the player. The recordings are licensed separately from the Ops application; no Bearagon endorsement by the artist is implied.
+The audio is re-encoded as 128 kbps MP3 for web playback; the compositions are unedited. Side names are Bearagon's cassette labels, not alternate track titles. Credit and the source/license links appear in the player. The recordings are licensed separately from the Ops application; no Bearagon endorsement by the artist is implied.
 
 | Side | Track | Source | Download |
 | --- | --- | --- | --- |

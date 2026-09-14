@@ -44,7 +44,7 @@ export function CassettePlayer() {
           <h2>Neon cassette</h2><p className="cassette-now">Side {track.side} · {track.title}</p>
           <label className="cassette-volume"><span>Volume <b>{state.muted ? 'Muted' : `${Math.round(state.volume * 100)}%`}</b></span><input aria-label="Music volume" type="range" min="0" max="100" step="1" value={Math.round(state.volume * 100)} onChange={e => transport.current?.setVolume(Number(e.target.value) / 100)}/></label>
           <div className="cassette-panel-actions"><button type="button" onClick={() => transport.current?.toggleMute()}>{state.muted ? <VolumeX aria-hidden="true"/> : <Volume2 aria-hidden="true"/>}{state.muted ? 'Unmute' : 'Mute'}</button><button type="button" onClick={() => transport.current?.flip()}><Disc3 aria-hidden="true"/>Flip to side {state.side === 0 ? 'B' : 'A'}</button></div>
-          <div className="cassette-credit"><a href={track.source} target="_blank" rel="noreferrer">{track.title}</a> by Kevin MacLeod (incompetech.com). <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">CC BY 4.0</a>. Original recording, unchanged.</div>
+          <div className="cassette-credit"><a href={track.source} target="_blank" rel="noreferrer">{track.title}</a> by Kevin MacLeod (incompetech.com). <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">CC BY 4.0</a>. Audio compressed for web playback; composition unedited.</div>
         </PopoverContent>
       </Popover>
     </div>
