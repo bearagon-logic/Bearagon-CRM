@@ -199,7 +199,9 @@
 .company-removal-action{font-size:.875rem;max-width:100%}.company-removal-action>a{display:inline-block;color:#73511e;text-decoration:underline}.company-removal-form{display:grid;gap:16px}.company-removal-form label{display:grid;gap:6px;font-weight:600}.company-removal-form select,.approval-assignment select{border:1px solid #bdcedf;border-radius:8px;background:white;color:#17324d;min-height:42px;padding:8px;width:100%}.approval-assignment{display:grid;gap:6px;padding:0 20px 16px;font-size:.875rem}.company-removal-action [role=alert]{display:block;color:#8a371f}
 
 /* Company profiles lead with saved information; enrichment follows the record. */
-.company-overview-dashboard{align-items:start;margin-bottom:24px}
+.company-overview-dashboard{align-items:start}
+.company-overview-dashboard .company-record-main{gap:24px}
+.company-overview-dashboard .company-record-main>.company-panel{margin:0}
 .company-information h2,.company-overview-dashboard h2,.company-web-source h2{margin:0 0 18px;font-size:1.2rem}
 .company-facts{display:grid;gap:16px;margin:0}
 .company-basic-facts{grid-template-columns:repeat(2,minmax(0,1fr))}
