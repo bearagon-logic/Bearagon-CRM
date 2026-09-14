@@ -76,9 +76,9 @@
 .research-review { margin-top: 16px; border-top: 1px solid var(--border, #d5dce5); padding-top: 12px; }
 .research-review h3 { margin: 12px 0; font-size: 1rem; }
 .research-fact { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border, #e5e9ef); }
-.research-fact > button { margin-top: 4px; flex-shrink: 0; }
+.research-fact > button { margin-top: .15rem; flex-shrink: 0; }
 .research-fact > div { min-width: 0; }
-.research-fact label { font-size: .875rem; font-weight: 650; cursor: pointer; }
+.website-research .research-fact label { display: block; margin: 0; padding: 0; font-size: .875rem; line-height: 1.5; font-weight: 650; cursor: pointer; }
 .research-fact p { margin: 5px 0; font-size: 1rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
 .research-fact a { font-size: .875rem; text-decoration: underline; }
 .research-notice { font-size: .875rem; margin: 8px 0; }
