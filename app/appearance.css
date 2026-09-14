@@ -35,8 +35,11 @@ html:is([data-appearance="dark"],[data-appearance="plaid"]) .ops-sidebar-footer{
 html:is([data-appearance="dark"],[data-appearance="plaid"]) .ops-sidebar .ops-navigation a{color:#bdcfe6}
 html:is([data-appearance="dark"],[data-appearance="plaid"]) .ops-sidebar .ops-navigation a.active{background:#213a53;color:#fff}
 html:is([data-appearance="dark"],[data-appearance="plaid"]) .ops-add-account{background:#1c3951;color:#e9f6ff;border-color:#5284a5}
+/* Keep appearance and operator identity together at the bottom of the sidebar. */
+.ops-sidebar-bottom{display:flex;flex-direction:column;gap:8px;margin-top:auto;flex-shrink:0;min-width:0}
+.ops-sidebar-bottom .ops-sidebar-footer{margin-top:0}
 /* The sidebar control also works when navigation collapses into a mobile menu. */
-.ops-appearance-trigger{display:flex;align-items:center;gap:10px;flex-shrink:0;padding:10px 12px;margin:20px 0 10px;border:1px solid #385675;border-radius:9px;background:#0c2948;color:#d8edff;text-align:left;cursor:pointer;font-size:13px}
+.ops-appearance-trigger{display:flex;align-items:center;gap:10px;flex-shrink:0;padding:10px 12px;margin:0;border:1px solid #385675;border-radius:9px;background:#0c2948;color:#d8edff;text-align:left;cursor:pointer;font-size:13px}
 .ops-appearance-trigger>svg{width:18px;height:18px;flex-shrink:0;color:#a1daff}
 .ops-appearance-trigger>span{display:grid;gap:3px;font-weight:650}
 .ops-appearance-trigger small{font-size:11px;font-weight:400;color:#a6bcd2}
@@ -80,7 +83,7 @@ html[data-appearance="plaid"] .plaid-scene{display:flex;position:relative;isolat
 @keyframes plaid-drift{to{background-position:270px 0}}@keyframes plaid-cruise{50%{box-shadow:inset 0 -2px #85f6ff,inset 0 2px #ff6bca,0 0 20px #de43f945}}
 html[data-ambient="on"] .plaid-stars{animation:plaid-drift 55s linear infinite}html[data-ambient="on"] .plaid-boost{animation:plaid-cruise 2s ease-in-out 2}
 
-@media(max-width:760px){.ops-appearance-trigger{display:none}.ops-sidebar.menu-open .ops-appearance-trigger{display:flex;margin:12px 0}.plaid-toys{display:none}html[data-appearance="plaid"] .plaid-scene{min-height:132px;padding:22px}.ops-sidebar{overflow-y:visible}}
+@media(max-width:760px){.ops-sidebar-bottom{display:none}.ops-sidebar.menu-open .ops-sidebar-bottom{display:flex;margin-top:12px}.ops-appearance-trigger{display:none}.ops-sidebar.menu-open .ops-appearance-trigger{display:flex}.plaid-toys{display:none}html[data-appearance="plaid"] .plaid-scene{min-height:132px;padding:22px}.ops-sidebar{overflow-y:visible}}
 @media(max-width:540px){.appearance-choices{grid-template-columns:1fr;gap:10px}.appearance-choice{display:grid;grid-template-columns:70px 1fr;column-gap:12px;row-gap:3px;padding:9px}.appearance-mini{height:60px;grid-row:span 2}.appearance-choice>b{align-self:end}.appearance-choice>small{grid-column:2}.appearance-dialog{max-height:calc(100dvh - 30px);overflow-y:auto}}
 @media(prefers-reduced-motion:reduce){.plaid-stars,.plaid-boost{animation:none!important}.plaid-scene *{transition:none!important}}
 @media(forced-colors:active){.plaid-scene,.appearance-mini{display:none}.appearance-choice[aria-pressed="true"]{outline:3px solid Highlight}}
