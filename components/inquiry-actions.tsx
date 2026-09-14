@@ -7,11 +7,11 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { InquiryCleanup } from './inquiry-cleanup';
 import type { InquiryRecord } from '@/lib/workspace-model';
 
-export function InquiryActions({inquiry,onDone}:{inquiry:InquiryRecord;onDone:(message:string)=>void}) {
+export function InquiryActions({inquiry,onDone,disabled=false}:{inquiry:InquiryRecord;onDone:(message:string)=>void;disabled?:boolean}) {
   const router=useRouter();
   const [busy,setBusy]=useState(false),[error,setError]=useState(''),[cleanup,setCleanup]=useState(false);
   async function route(action:'lead'|'workflow') {
-    if(busy)return;setBusy(true);setError('');
+    if(busy||disabled)return;setBusy(true);setError('');
     try {
       const response=await fetch('/api/inquiries',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({action,id:inquiry.id,accountId:inquiry.accountId,expectedUpdatedAt:inquiry.updatedAt})});
       const data=await response.json() as {error?:string};
@@ -22,7 +22,7 @@ export function InquiryActions({inquiry,onDone}:{inquiry:InquiryRecord;onDone:(m
     finally {setBusy(false);}
   }
   return <div className="queue-row-menu">
-    <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="outline" disabled={busy} aria-label={`Actions for ${inquiry.companyName}`}>{busy?'Saving…':'Actions'}<ChevronDown size={14}/></Button></DropdownMenuTrigger>
+    <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="outline" disabled={busy||disabled} aria-label={`Actions for ${inquiry.companyName}`}>{busy?'Saving…':'Actions'}<ChevronDown size={14}/></Button></DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="inquiry-action-menu">
         <DropdownMenuItem onSelect={()=>{setError('');setCleanup(true);}}>Mark as test / spam</DropdownMenuItem>
         <DropdownMenuItem disabled={inquiry.status==='qualified'} onSelect={()=>void route('lead')}>{inquiry.status==='qualified'?'Already marked as lead':'Mark as lead'}</DropdownMenuItem>

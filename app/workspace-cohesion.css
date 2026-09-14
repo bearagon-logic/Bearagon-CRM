@@ -180,3 +180,11 @@
   .inbox-source-panel .intake-feed-heading { flex-direction:row; flex-wrap:wrap; }
   .intake-feed-panel.inbox-source-panel { padding:14px 16px; }
 }
+
+.inbox-identity-review .inbox-review-intro { color:#526b80; font-size:.875rem; margin:8px 0 0; }
+.inbox-review-label { display:block; margin-bottom:7px; color:#396e90; font-size:.75rem; font-weight:600; }
+.inbox-identity-review article.is-selected { background:#f3f8fc; }
+.inbox-identity-review .queue-row-menu { margin:0; }
+.inbox-identity-review article>div:first-child>b { display:block; }
+#inquiry-details { scroll-margin-top:24px; }
+@media(max-width:650px) { #inquiry-details { scroll-margin-top:90px; } }
