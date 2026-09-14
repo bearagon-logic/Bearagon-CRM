@@ -94,3 +94,26 @@ html[data-appearance="plaid"] :is(.company-panel,.lane-panel,.service-panel)::be
 html[data-appearance="plaid"] :is(.company-panel,.lane-panel,.service-panel):nth-child(even)::before{background:#77e9ff;transform:rotate(30deg)}
 html[data-appearance="plaid"] :is(.eyebrow,.record-breadcrumb,.lane-header>div>small){font-family:ui-monospace,monospace;letter-spacing:.12em}
 html[data-appearance="plaid"] .ops-operator-avatar{background:linear-gradient(135deg,#f48dd8,#89dfff);color:#24123e;box-shadow:0 0 15px #eb6de72a}
+
+/* Optional cassette audio: transport is visible wherever playback is available. */
+.plaid-cassette{width:min(100%,340px);min-width:0;text-align:left}
+.cassette-buttons{display:flex;gap:6px;align-items:stretch}
+.plaid-toys .cassette-start{flex:1;min-width:0;min-height:44px}
+.plaid-toys .cassette-start>span{display:grid;gap:3px;font:600 12px/1.3 ui-monospace,monospace;letter-spacing:0}
+.plaid-toys .cassette-start small{font:400 12px/1.3 Arial,sans-serif;color:#e0cbe8}
+.plaid-toys .cassette-settings{justify-content:center;min-width:44px;min-height:44px;padding:8px}
+.cassette-status{display:block;font-size:12px;line-height:1.4;color:#d8c6e7;margin:6px 2px 0;max-width:340px}
+.cassette-error{color:#ffb5c6}
+.cassette-panel{z-index:90;width:min(320px,calc(100vw - 24px));font:14px/1.5 Arial,sans-serif;border-radius:12px}
+.cassette-panel h2{margin:0;font-size:18px;font-weight:700}
+.cassette-now{margin:5px 0 18px;color:var(--appearance-muted)}
+.cassette-volume{display:grid;gap:8px}
+.cassette-volume>span{display:flex;justify-content:space-between}
+.cassette-volume b{font-weight:400;color:var(--appearance-muted)}
+.cassette-volume input{width:100%;height:32px;accent-color:#ff86d7;cursor:pointer}
+.cassette-panel-actions{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 16px}
+.cassette-panel-actions button{display:inline-flex;align-items:center;gap:7px;min-height:42px;padding:8px 12px;border:1px solid var(--appearance-line);border-radius:8px;background:var(--appearance-raised);color:var(--appearance-text);cursor:pointer;font-size:14px}
+.cassette-panel-actions svg{width:16px;height:16px}
+.cassette-credit{border-top:1px solid var(--appearance-line);padding-top:12px;color:var(--appearance-muted);font-size:12px}
+.cassette-credit a{text-decoration:underline;color:var(--appearance-accent);text-underline-offset:2px}
+@media(max-width:760px){html[data-appearance="plaid"] .plaid-scene{flex-direction:column;align-items:flex-start;gap:16px}.plaid-scene .plaid-toys{display:grid;justify-items:start;width:100%;max-width:100%}.plaid-toys .plaid-cipher{display:none}}
