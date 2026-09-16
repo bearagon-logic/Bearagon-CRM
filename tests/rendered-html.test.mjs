@@ -9,6 +9,7 @@ const vite = await createServer({
   appType: "custom",
   configFile: false,
   root,
+  resolve: { alias: { '@': root } },
   cacheDir: path.join(root, ".vite-test-cache", "rendered"),
   server: { middlewareMode: true, hmr: { port: 24679 } },
 });

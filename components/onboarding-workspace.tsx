@@ -1,75 +1,32 @@
 "use client";
-
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { Search, TriangleAlert } from "lucide-react";
-import { Progress } from "./ui/progress";
-import { DeliveryNextAction } from './delivery-next-action';
+import Link from 'next/link';
+import { useState } from 'react';
+import { ArrowRight, RefreshCw, Search } from 'lucide-react';
+import { Button } from './ui/button';
+import { useWorkspaceRecords } from './use-workspace-records';
 import type { DeliveryReadiness } from '@/lib/delivery-readiness';
+import type { ScopingRecord } from '@/lib/server/scoping-work';
+import { onboardingStageOptions } from '@/lib/workspace-model';
 
-type Onboarding = {
-  id: string;
-  accountId: string;
-  accountName: string;
-  organizationKind?:string;
-  contactName: string;
-  contactEmail: string;
-  stage: string;
-  status: string;
-  nextStep: string;
-  targetDate: string;
-  owner: string;
-  total: number;
-  complete: number;
-  open: number;
-  blocked: number;
-  readiness: DeliveryReadiness;
-};
-
-const stages = ["All delivery", "Intake", "Connections", "Building", "Testing", "Live"];
-
-function targetLabel(targetDate: string) {
-  if (!targetDate) return "No target";
-  return targetDate;
-}
-
-function isOverdue(targetDate: string) {
-  return Boolean(targetDate && targetDate < new Date().toISOString().slice(0, 10));
-}
-
-export function OnboardingWorkspace() {
-  const [items, setItems] = useState<Onboarding[]>([]);
-  const [stage, setStage] = useState("All delivery");
-  const [query, setQuery] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    fetch("/api/onboarding")
-      .then(async (response) => {
-        const data = await response.json() as { onboardings?: Onboarding[]; error?: string };
-        if (!response.ok) throw new Error(data.error);
-        setItems((data.onboardings || []).filter(item=>item.organizationKind!=='internal'));
-      })
-      .catch(() => setError("Onboarding work is temporarily unavailable."))
-      .finally(() => setLoading(false));
-  }, []);
-
-  const visible = useMemo(() => items
-    .filter((item) => (stage === "All delivery" || item.stage === stage)
-      && [item.accountName, item.contactName, item.nextStep, item.readiness.label].some((value) => value.toLowerCase().includes(query.toLowerCase())))
-    .sort((left, right) => Number(right.status === "blocked" || right.blocked > 0) - Number(left.status === "blocked" || left.blocked > 0)
-      || Number(isOverdue(right.targetDate)) - Number(isOverdue(left.targetDate))
-      || left.targetDate.localeCompare(right.targetDate)), [items, query, stage]);
-  const totalOpen = items.reduce((sum, item) => sum + item.open, 0);
-  const blocked = items.filter((item) => item.status === "blocked" || item.blocked > 0).length;
-  const overdue = items.filter((item) => isOverdue(item.targetDate)).length;
-
-  return <main className="company-experience">
-    <header className="company-record-header"><div><small className="eyebrow">DELIVERY WORKSPACE</small><h1>Onboarding</h1><p>Accepted engagements, from setup through the final handoff.</p></div><Link href="/companies">View companies →</Link></header>
-    <div className="company-lane-toolbar"><label className="account-search"><Search aria-hidden="true"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search onboarding work" aria-label="Search onboarding work"/></label><label>Delivery stage <select value={stage} onChange={e=>setStage(e.target.value)}>{stages.map(s=><option key={s}>{s}</option>)}</select></label><span>{blocked} need attention · {overdue} past target</span></div>
-    {loading&&<p role="status">Loading onboarding…</p>}{error&&<p role="alert" className="company-error">{error}</p>}
-    <div className="company-lane-cards">{!loading&&!error&&visible.map(item=><article className="company-panel" key={item.id}><div className="panel-heading"><div><small className="eyebrow">CLIENT ONBOARDING</small><h2>{item.accountName}</h2></div><span className="company-status">{item.readiness.stageLabel}</span></div><p className="company-help">Owner: {item.owner||'Unassigned'} · {item.contactName} · Target: {targetLabel(item.targetDate)}</p><div className="company-lane-progress"><Progress value={item.total?100*item.complete/item.total:0} aria-label={`Saved delivery requirements for ${item.accountName}`}/><span>{item.complete}/{item.total} requirements resolved</span></div>{item.blocked>0&&<p className="company-error"><TriangleAlert size={16}/> {item.blocked} blocked requirements — open delivery for the recorded reasons.</p>}<div className="company-lane-next"><DeliveryNextAction readiness={item.readiness} coordination={item.nextStep}/><Link className="company-primary-link" href={`/onboarding/${encodeURIComponent(item.accountId)}?tab=delivery`}>Continue onboarding →</Link></div></article>)}</div>
-    {!loading&&!error&&!visible.length&&<section className="company-panel"><h2>No active onboarding in this view</h2><p>Accepted engagements stay here until the handoff to ongoing service.</p><Link href="/companies">View companies →</Link></section>}
+type Onboarding = {id:string;accountId:string;accountName:string;organizationKind?:string;contactName:string;stage:string;status:string;nextStep:string;targetDate:string;owner:string;total:number;complete:number;blocked:number;readiness:DeliveryReadiness};
+const scopeStages=['Prepare scope','Internal review','Client acceptance','Review saved scope'];
+export function scopingDestination(item:Pick<ScopingRecord,'accountId'|'stage'>){return `/onboarding/${encodeURIComponent(item.accountId)}?tab=services${item.stage==='Prepare scope'?'':'&step=review'}`;}
+export function OnboardingWorkspace(){
+  const delivery=useWorkspaceRecords<Onboarding>('/api/onboarding','onboardings');
+  const scoping=useWorkspaceRecords<ScopingRecord>('/api/scoping','scoping');
+  const deliveryStages=onboardingStageOptions(delivery.records);
+  const [query,setQuery]=useState(''),[view,setView]=useState('All work'),[stage,setStage]=useState('All stages');
+  const now=new Date();
+  const today=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  const search=(values:string[])=>values.some(value=>(value||'').toLowerCase().includes(query.trim().toLowerCase()));
+  const scopeRows=scoping.records.filter(item=>view!=='Accepted onboarding'&&(stage==='All stages'||stage===item.stage)&&search([item.accountName,item.owner,item.nextAction,item.coordination,item.stage]));
+  const deliveryRows=delivery.records.filter(item=>item.organizationKind!=='internal'&&view!=='Preparing scope'&&(stage==='All stages'||stage===item.readiness.stageLabel)&&search([item.accountName,item.contactName,item.owner,item.readiness.label,item.readiness.stageLabel])).sort((a,b)=>Number(b.readiness.stageLabel==='Blocked')-Number(a.readiness.stageLabel==='Blocked')||(a.targetDate||'9999').localeCompare(b.targetDate||'9999')||a.accountName.localeCompare(b.accountName));
+  const loading=delivery.loading||scoping.loading;
+  const sourceError=(label:string,source:typeof scoping|typeof delivery)=><p role="alert" className="onboarding-source-error">{label}: {source.error} <Button variant="outline" onClick={source.refresh}>Retry</Button></p>;
+  return <main className="company-experience onboarding-lane">
+    <header className="company-record-header"><div><h1>Onboarding</h1><p>Find the next step, from preparing scope to the final handoff.</p></div><Button variant="outline" disabled={loading} onClick={()=>{scoping.refresh();delivery.refresh();}}><RefreshCw size={16} aria-hidden="true"/>Refresh</Button></header>
+    <div className="onboarding-toolbar"><label className="onboarding-search"><Search size={18} aria-hidden="true"/><input aria-label="Search onboarding work" placeholder="Search company, owner or next action" value={query} onChange={e=>setQuery(e.target.value)}/></label><label>Show<select value={view} onChange={e=>{setView(e.target.value);setStage('All stages');}}>{['All work','Preparing scope','Accepted onboarding'].map(v=><option key={v}>{v}</option>)}</select></label><label>Stage<select value={stage} onChange={e=>setStage(e.target.value)}>{['All stages',...(view!=='Accepted onboarding'?scopeStages:[]),...(view!=='Preparing scope'?deliveryStages:[])].map(s=><option key={s}>{s}</option>)}</select></label></div>
+    {view!=='Accepted onboarding'&&<section className="onboarding-list" aria-labelledby="scope-list-title"><header><div><h2 id="scope-list-title">Preparing scope <span>{scoping.loading?'…':scopeRows.length}</span></h2><p>Service package, internal review and client acceptance.</p></div></header>{scoping.loading&&<p role="status" className="onboarding-empty">Loading saved scope work…</p>}{scoping.error?sourceError('Preparing scope',scoping):scopeRows.map(item=><article className="onboarding-work-row" key={item.id}><div className="onboarding-row-main"><Link href={scopingDestination(item)}><strong>{item.accountName}</strong></Link><p>{item.nextAction}</p>{item.coordination&&item.coordination!==item.nextAction&&<small>Coordination: {item.coordination}</small>}</div><span className="onboarding-stage">{item.stage}</span><div className="onboarding-row-meta"><span>{item.owner||'Unassigned'}</span><small>{item.followUpDate?`Follow-up ${item.followUpDate}`:'No follow-up date'}</small></div><Link className="onboarding-open-link" href={scopingDestination(item)} aria-label={`Open scope for ${item.accountName}`}>Open scope <ArrowRight aria-hidden="true" size={16}/></Link></article>)}{!scoping.loading&&!scoping.error&&!scopeRows.length&&<p className="onboarding-empty">{query||stage!=='All stages'?'No scope work matches these filters.':'No companies are waiting for scope. Start a client workflow from Inbox, or open a company to prepare its service package.'} <Link href="/communications">Open Inbox</Link></p>}</section>}
+    {view!=='Preparing scope'&&<section className="onboarding-list" aria-labelledby="delivery-list-title"><header><div><h2 id="delivery-list-title">Accepted onboarding <span>{delivery.loading?'…':deliveryRows.length}</span></h2><p>Setup, build evidence and handoff. Earlier delivery plans remain available.</p></div></header>{delivery.loading&&<p role="status" className="onboarding-empty">Loading saved delivery work…</p>}{delivery.error?sourceError('Accepted onboarding',delivery):deliveryRows.map(item=><article className="onboarding-work-row" key={item.id}><div className="onboarding-row-main"><Link href={`/onboarding/${encodeURIComponent(item.accountId)}?tab=delivery`}><strong>{item.accountName}</strong></Link><p>{item.readiness.label}</p><small>{item.complete}/{item.total} requirements resolved{item.readiness.legacy?' · Earlier delivery plan':''}{item.blocked>0?` · ${item.blocked} blocked`:''}</small></div><span className="onboarding-stage">{item.readiness.stageLabel}</span><div className="onboarding-row-meta"><span>{item.owner||'Unassigned'}</span><small>{item.targetDate?`${item.targetDate<today?'Past target':'Target'} ${item.targetDate}`:'No target date'}</small></div><Link className="onboarding-open-link" href={`/onboarding/${encodeURIComponent(item.accountId)}?tab=delivery`} aria-label={`Continue onboarding for ${item.accountName}`}>Continue <ArrowRight aria-hidden="true" size={16}/></Link></article>)}{!delivery.loading&&!delivery.error&&!deliveryRows.length&&<p className="onboarding-empty">{query||stage!=='All stages'?'No delivery work matches these filters.':'Accepted engagements appear here when delivery begins.'} <Link href="/companies">View companies</Link></p>}</section>}
   </main>;
 }

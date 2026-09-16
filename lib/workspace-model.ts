@@ -1,8 +1,13 @@
+import type { ScopingRecord } from './server/scoping-work';
 export type CompanyRecord = { id: string; companyName: string; organizationKind?: string; relationshipOwner?: string; stage: string; onboardingStatus: string; workspaceStatus: string; nextStep: string; dueDate: string };
 export type InquiryRecord = { id: string; accountId: string; companyName: string; status: string; owner: string; nextAction: string; followUpDate: string; updatedAt: string };
 export type DeliveryRecord = { organizationKind?:string; id: string; accountId: string; accountName: string; status: string; stage: string; owner: string; nextStep: string; readiness?: {label:string}; targetDate: string; blocked: number; open: number };
 export type DecisionRecord = { id: string; clientId: string; clientName: string; status: string; title: string; requestedBy: string };
 export type QueueItem = { id: string; company: string; title: string; owner: string; due: string; kind: string; href: string; priority: number };
+
+export function onboardingStageOptions(records: {organizationKind?:string;readiness:{stageLabel:string}}[]): string[] {
+  return [...new Set(['Scope','Setup','Build & test','Blocked','Handoff review',...records.filter(item=>item.organizationKind!=='internal').map(item=>item.readiness.stageLabel).filter(Boolean)])];
+}
 
 export function workspaceDestination(path: string, tab = "", ongoing = false) {
   if (!path) return "/";
@@ -27,4 +32,8 @@ export function queueItems(inquiries: InquiryRecord[], deliveries: DeliveryRecor
     ...decisions.filter(d => d.status.toLowerCase() === "pending").map(d => ({ id: `decision:${d.id}`, company: d.clientName, title: d.title, owner: "Bearagon reviewer", due: "", kind: "Approval", href: `/approvals?request=${encodeURIComponent(d.id)}`, priority: 1 })),
   ];
   return rows.sort((a,b) => a.priority - b.priority || (a.due || "9999").localeCompare(b.due || "9999") || a.company.localeCompare(b.company) || a.id.localeCompare(b.id));
+}
+
+export function scopingQueueItems(records: ScopingRecord[], today: string): QueueItem[] {
+  return records.map(item=>({id:`scope:${item.id}`,company:item.accountName,title:item.nextAction,owner:item.owner||"Unassigned",due:item.followUpDate,kind:"Scope",href:`/onboarding/${encodeURIComponent(item.accountId)}?tab=services${item.stage==='Prepare scope'?'':'&step=review'}`,priority:item.followUpDate&&item.followUpDate<today?0:2}));
 }

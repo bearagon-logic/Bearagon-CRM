@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { PathnameContext } from 'next/dist/shared/lib/hooks-client-context.shared-runtime.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const vite = await createServer({
@@ -120,7 +121,7 @@ test('email walkthrough enforces distinct primary and secondary action button hi
 });
 
 test('playbooks page renders featured guided card and all catalog services with tier badges', () => {
-  const html = renderToStaticMarkup(React.createElement(Playbooks));
+  const html = renderToStaticMarkup(React.createElement(PathnameContext.Provider, { value: '/playbooks' }, React.createElement(Playbooks)));
 
   // Featured hero section
   assert.ok(html.includes('playbooks-hero'));

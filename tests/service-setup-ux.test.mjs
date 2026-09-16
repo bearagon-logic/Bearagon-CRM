@@ -49,22 +49,25 @@ test('accepted plans require complete setup and current work-order evidence even
   const p=proposal(run());p.setup={answers:['','',''],revision:2};
   assert.equal(deliveryReadiness('active',tasks,p).kind,'setup');
   p.setup.answers=['Outcome','Systems','Authority'];
-  Object.assign(p.orders[0],{status:'tested',setupRevision:1,testRef:'Old evidence'});
+  Object.assign(p.orders[0],{status:'tested',setupRevision:1,buildRef:'Build reference',testRef:'Old evidence'});
   assert.equal(deliveryReadiness('active',tasks,p).kind,'work');
   p.orders[0].setupRevision=2;p.orders[0].testRef='';assert.equal(deliveryReadiness('active',tasks,p).ready,false);
   assert.equal(deliveryReadiness('active',tasks,p).stageLabel,'Build & test');
   p.orders[0].testRef='Current evidence';assert.equal(deliveryReadiness('active',tasks,p).ready,true);
+  p.orders[0].buildRef='';assert.equal(deliveryReadiness('active',tasks,p).ready,false);
+  assert.equal(deliveryReadiness('active',tasks,p).kind,'work');
+  p.orders[0].buildRef='Build reference';
   assert.equal(deliveryReadiness('active',[...tasks,{id:'scope',templateKey:'scope:email',title:'Email',status:'in_progress'}],p).ready,false);
 });
 test('resume resolves earliest unfinished prerequisite and rendering opens that step without configuration',()=>{
-  const r=run();for(const s of r.steps.slice(0,3))r.progress[s.id]={...entryFrom(),status:'completed',evidence:'Recorded'};
-  r.progress[r.steps[5].id]={...entryFrom(),status:'in_progress',notes:'Later work'};
-  assert.equal(emailResumeStep(r),r.steps[3].id);
+  const r=run();r.progress[r.steps[0].id]={...entryFrom(),status:'completed',evidence:'Recorded'};
+  r.progress[r.steps[2].id]={...entryFrom(),status:'in_progress',notes:'Later work'};
+  assert.equal(emailResumeStep(r),r.steps[1].id);
   const p=proposal(r),html=renderToStaticMarkup(React.createElement(EmailWalkthrough,{accountId:'fixture',initialData:{proposal:p}}));
-  assert.ok(html.includes(r.steps[3].title));assert.doesNotMatch(html,/Confirm the implementation route/);
+  assert.ok(html.includes(r.steps[1].title));assert.doesNotMatch(html,/Confirm the implementation route/);
   const link=renderToStaticMarkup(React.createElement(EmailWalkthroughLink,{accountId:'fixture',order:p.orders[0]}));
   assert.ok(link.includes(emailResumeLabel(r)));assert.ok(link.includes('Continue:'));
-  r.progress[r.steps[1].id].status='blocked';assert.equal(emailResumeStep(r),r.steps[1].id);
+  r.progress[r.steps[0].id].status='blocked';assert.equal(emailResumeStep(r),r.steps[0].id);
 });
 test('resume distinguishes incomplete configuration, recorded completion and read-only history',()=>{
   assert.equal(emailResumeStep(), 'configuration');

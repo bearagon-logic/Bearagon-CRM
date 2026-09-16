@@ -30,8 +30,8 @@ export function deliveryReadiness(status: string, tasks: DeliveryRequirement[], 
   if (blocker) return result('requirements', `Resolve blocker: ${blocker.title}`, 'Open the saved requirement to review its blocker and prerequisites.');
   const next = requirements.find(task => !resolved(task));
   if (next) return result('requirements', `Complete requirement: ${next.title}`, 'Review the saved requirement and record its evidence or an approved exception.');
-  const untested = proposal?.acceptance && proposal.orders.find(order => order.status !== 'tested' || order.setupRevision !== proposal.setup.revision || !order.testRef.trim());
-  if (untested) return result('work', `Record current build & test evidence: ${untested.name}`, 'The work order needs external test evidence against the current setup revision.');
+  const untested = proposal?.acceptance && proposal.orders.find(order => order.status !== 'tested' || order.setupRevision !== proposal.setup.revision || !order.buildRef?.trim() || !order.testRef?.trim());
+  if (untested) return result('work', `Record current build & test evidence: ${untested.name}`, 'The work order needs build and external test references against the current setup revision.');
   if (!requirements.length || proposal?.acceptance && !proposal.orders.length || tasks.some(task => !resolved(task))) return result('requirements', 'Review saved delivery requirements', 'Required delivery records or implementation evidence are still outstanding.');
   if (status === 'blocked') return result('requirements', 'Review the delivery blocker', 'The engagement is still marked blocked. Review its coordination and resolve the blocker before final handoff.');
   return result('review', 'Ready for final handoff review', 'Review the saved evidence and confirm the handoff to ongoing service.');

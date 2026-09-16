@@ -10,6 +10,7 @@ import "./interaction-theme.css";
 import "./workflow-refinement.css";
 import "./email-walkthrough.css";
 import "./workspace-cohesion.css";
+import "./onboarding-experience.css";
 import "./appearance-legacy.css";
 import "./appearance.css";
 
