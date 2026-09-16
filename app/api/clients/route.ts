@@ -186,8 +186,9 @@ export async function POST(request: Request) {
       targetDate: value.targetDate,
       updatedAt: now,
     });
-    const taskStatement = db.insert(onboardingTasks).values(
-          onboardingTemplate.map((task, index) => ({
+    // One insert per task stays below D1's 100 bound parameters per statement.
+    // All statements still commit or roll back together in db.batch.
+    const taskStatements = onboardingTemplate.map((task, index) => db.insert(onboardingTasks).values({
             id: newId("task"),
             engagementId,
             templateKey: task.key,
@@ -195,8 +196,7 @@ export async function POST(request: Request) {
             description: task.description,
             sortOrder: index + 1,
         updatedAt: now,
-      })),
-    );
+      }));
     const auditStatement = db.insert(operatorAuditEvents).values({
       id: newId("audit"),
       accountId,
@@ -215,7 +215,7 @@ export async function POST(request: Request) {
         accountStatement,
         relationshipStatement,
         engagementStatement,
-        taskStatement,
+        ...taskStatements,
         auditStatement,
       ]);
     } else if (existingContact) {
@@ -230,7 +230,7 @@ export async function POST(request: Request) {
         contactStatement,
         relationshipStatement,
         engagementStatement,
-        taskStatement,
+        ...taskStatements,
         auditStatement,
       ]);
     } else {

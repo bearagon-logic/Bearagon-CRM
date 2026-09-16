@@ -255,8 +255,8 @@ export async function PATCH(
           nextStep: "Complete discovery form",
           updatedAt: now,
         }),
-        db.insert(onboardingTasks).values(
-          onboardingTemplate.map((task, index) => ({
+        // Keep each task below D1's bound-parameter limit within this atomic batch.
+        ...onboardingTemplate.map((task, index) => db.insert(onboardingTasks).values({
             id: newId("task"),
             engagementId,
             templateKey: task.key,
@@ -265,7 +265,6 @@ export async function PATCH(
             sortOrder: index + 1,
             updatedAt: now,
           })),
-        ),
         db.insert(operatorAuditEvents).values({
           id: newId("audit"),
           accountId: id,

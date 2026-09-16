@@ -1,4 +1,5 @@
 import { routeInquiry } from '@/lib/server/inquiry-routing';
+import { inquirySourceRef } from '@/lib/server/inquiry-source';
 import { and, desc, eq, sql } from "drizzle-orm";
 import { getDb, getRawDb } from "@/db";
 import { handoffInquiry } from '@/lib/server/inquiry-handoff';
@@ -11,7 +12,7 @@ import { newId } from "@/lib/ops-domain.mjs";
 export async function GET(request: Request) {
   if (!await getOperatorIdentity(request)) return operatorRequiredResponse();
   const accountId = new URL(request.url).searchParams.get("accountId");
-  const rows = await getDb().select({ inquiry: inquiries, companyName: accounts.name, contactName: contacts.displayName, email: contacts.email, phone: contacts.phone })
+  const rows = await getDb().select({ inquiry: inquiries, sourceRef: inquirySourceRef, companyName: accounts.name, contactName: contacts.displayName, email: contacts.email, phone: contacts.phone })
     .from(inquiries).innerJoin(accounts, eq(accounts.id, inquiries.accountId)).innerJoin(contacts, eq(contacts.id, inquiries.contactId))
     .where(accountId ? eq(inquiries.accountId, accountId) : sql`(${accounts.status}='active' OR ${inquiries.status}='closed')`).orderBy(desc(inquiries.createdAt));
   return Response.json({ inquiries: rows.map(({ inquiry, ...context }) => ({ ...inquiry, ...context })) }, { headers: { "cache-control": "no-store" } });

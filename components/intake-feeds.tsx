@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { inquirySourceLabel } from "@/lib/inquiry-source";
 import { Info, Radio } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 export type IntakeReview={id:string;reason:string;event:{companyName:string;contactName:string;email:string;phone:string;summary:string;source:string;sourceRef:string}};
@@ -26,6 +27,6 @@ export function IntakeFeeds({onReview,onImported,renderReviews}:{onReview:(revie
   {!!state?.health.sources?.length&&<details className="inbox-source-details"><summary>Source details</summary>{state.health.sources.map((s)=><p className="intake-feed-meta" key={s.source}>{s.source}: {s.total} captured · last received {s.last_received_at}{s.notification_pending?` · ${s.notification_pending} email notifications need attention`:""}</p>)}</details>}
   {!!state?.health.sources?.some(s=>s.notification_pending>0)&&<p className="form-error" role="status">Some source notifications need attention. Open Source details to review.</p>}
   </section>
-  {renderReviews?renderReviews(state?.reviews||[],dismiss):!!state?.reviews.length&&<section className="intake-review-list inbox-identity-review" aria-label="Inquiries needing identity review"><h2>Needs identity review <span>{state.reviews.length}</span></h2>{state.reviews.map((r)=><article key={r.id}><div><b>{r.event.companyName||r.event.contactName||"Unidentified caller"}</b><small>{r.event.source} · {r.event.email||r.event.phone||"Contact details missing"}</small><p>{r.event.summary}</p><small>{r.reason}</small></div><div><Button onClick={()=>onReview(r)}>Review & link</Button><Button variant="ghost" onClick={()=>void dismiss(r)}>Dismiss</Button></div></article>)}</section>}
+  {renderReviews?renderReviews(state?.reviews||[],dismiss):!!state?.reviews.length&&<section className="intake-review-list inbox-identity-review" aria-label="Inquiries needing identity review"><h2>Needs identity review <span>{state.reviews.length}</span></h2>{state.reviews.map((r)=><article key={r.id}><div><b>{r.event.companyName||r.event.contactName||"Unidentified caller"}</b><small>{inquirySourceLabel(r.event.source, r.event.sourceRef)} · {r.event.email||r.event.phone||"Contact details missing"}</small><p>{r.event.summary}</p><small>{r.reason}</small></div><div><Button onClick={()=>onReview(r)}>Review & link</Button><Button variant="ghost" onClick={()=>void dismiss(r)}>Dismiss</Button></div></article>)}</section>}
   </>;
 }
